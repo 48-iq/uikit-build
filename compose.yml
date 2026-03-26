@@ -1,0 +1,44 @@
+
+
+services:
+  app:
+    image: node:20
+    ports:
+      - "80:3000"
+    command: >
+      sh -c "npm install && npm run start:dev"
+    environment:
+      NODE_ENV: development
+      MINIO_HOST: minio
+      MINIO_PASSWORD: ${MINIO_PASSWORD}
+    working_dir: /app
+    depends_on:
+      minio:
+        condition: service_started
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      dev_net:
+        
+  minio:
+    image: quay.io/minio/minio:latest
+    ports:
+      - "0000:9000"
+      - "0000:9001"
+    command: [ "server", "--console-address", ":9001", "/data" ]
+    volumes:
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    networks:
+      dev_net:
+    restart: unless-stopped
+    
+volumes:
+  minio-data:
+
+
+networks:
+  dev_net:

@@ -1,0 +1,1 @@
+export const MINIO_COMPONENTS_BUCKET = 'components';
