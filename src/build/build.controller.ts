@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Req,
   Res,
   StreamableFile,
   UploadedFile,
@@ -12,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BuildService } from './build.service';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 
 @Controller('/api/components')
 export class BuildController {
@@ -23,8 +24,30 @@ export class BuildController {
   async build(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: ComponentCreateDto,
+    @Req() req: Request,
   ) {
-    return await this.buildService.build(file.buffer, body.name);
+    const username = req['authPayload']['username'];
+    const framework = body.framework === 'react' ? 'react' : 'vanilla';
+    const fileExtension =
+      body.fileExtension === 'ts'
+        ? 'ts'
+        : body.fileExtension === 'tsx'
+          ? 'tsx'
+          : body.fileExtension === 'js'
+            ? 'js'
+            : 'jsx';
+
+    return await this.buildService.build({
+      buffer: file.buffer,
+      options: {
+        name: body.name,
+        framework,
+        fileExtension: fileExtension,
+        css: ['css'],
+        username,
+        dependencies: body.dependencies,
+      },
+    });
   }
 
   @Get('/:componentName')
