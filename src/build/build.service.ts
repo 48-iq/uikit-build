@@ -1,4 +1,4 @@
-import { Injectable, Param } from '@nestjs/common';
+import { Injectable, Logger, Param } from '@nestjs/common';
 import { Client } from 'minio';
 import { InjectMinio } from 'src/minio/minio.decorator';
 import { rollup } from 'rollup';
@@ -20,20 +20,27 @@ import { BuildResult } from './build-result.interface';
 
 @Injectable()
 export class BuildService implements BuildServiceInterface {
+
+  private readonly logger = new Logger(BuildService.name);
   constructor(@InjectMinio() private readonly minio: Client) {}
 
-  async build(args: {
+  async buildAndSave(args: {
     buffer: Buffer;
     options: BuildOptions;
   }): Promise<BuildResult> {
     const { buffer, options } = args;
 
     const tmpDir = tmp.dirSync({ unsafeCleanup: true }).name;
-
+    this.logger.log(path.join(tmpDir, `/lib/src/component.${options.fileExtension}`));
+    fs.mkdirSync(path.join(tmpDir, '/lib/src'), { recursive: true });
     fs.writeFileSync(
       path.join(tmpDir, `/lib/src/component.${options.fileExtension}`),
       buffer,
+      {
+        
+      }
     );
+
 
     this.createMain(tmpDir, options);
 
@@ -81,7 +88,7 @@ export class BuildService implements BuildServiceInterface {
       ['.'],
     );
 
-    const objectName = `${options.name}-${Date.now()}.tgz`;
+    const objectName = `${options.username}/${options.name}`;
 
     const tarStream = fs.createReadStream(path.join(tmpDir, '/tar.tgz'));
 
@@ -92,14 +99,12 @@ export class BuildService implements BuildServiceInterface {
     return {
       framework: options.framework,
       fileExtension: options.fileExtension,
-      componentName: options.name,
+      name: options.name,
       css: options.css,
+      username: options.username,
+      id: objectName,
       dependencies: options.dependencies,
     };
-  }
-
-  async get(objectName: string) {
-    return await this.minio.getObject(MINIO_COMPONENTS_BUCKET, objectName);
   }
 
   private getBabelPlugin(options: BuildOptions) {
@@ -138,8 +143,6 @@ export class BuildService implements BuildServiceInterface {
       compilerOptions: {
         target: 'ES2023',
         module: 'ESNext',
-        declaration: true,
-        outDir: 'dist',
         strict: true,
         moduleResolution: 'Node',
         esModuleInterop: true,
@@ -198,6 +201,11 @@ export class BuildService implements BuildServiceInterface {
 
   private createMain(tmpDir: string, options: BuildOptions) {
     const main = `export * as ${options.name} from './component.${options.fileExtension}';`;
+
+    fs.writeFileSync(
+      path.join(tmpDir, `/lib/src/main.${options.fileExtension}`),
+      main,
+    );
   }
 
   private async createDts(tmpDir: string, entry: string) {

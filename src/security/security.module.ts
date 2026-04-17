@@ -9,12 +9,12 @@ import { JwtGuard } from './jwt.guard';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
+      useFactory: async (configService: ConfigService) => ({
         secret: configService.getOrThrow<string>('JWT_SECRET'),
-        issuer: configService.getOrThrow<string>('JWT_ISSUER'),
-        audience: configService.getOrThrow<string>('JWT_AUDIENCE'),
-        algorithm: configService.getOrThrow<string>('JWT_ALGORITHM'),
-        expTime: configService.getOrThrow<number>('JWT_EXP_TIME'),
+        //issuer: configService.getOrThrow<string>('JWT_ISSUER'),
+        //audience: configService.getOrThrow<string>('JWT_AUDIENCE'),
+        //algorithm: configService.getOrThrow<string>('JWT_ALGORITHM'),
+        //expTime: configService.getOrThrow<number>('JWT_EXP_TIME'),
         
       }),
     }),
