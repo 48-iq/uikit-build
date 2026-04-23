@@ -2,26 +2,29 @@ import { Injectable, Logger, Param } from '@nestjs/common';
 import { Client } from 'minio';
 import { InjectMinio } from 'src/minio/minio.decorator';
 import { rollup } from 'rollup';
-import * as unzipper from 'unzipper';
+import postcss from 'rollup-plugin-postcss';
 import * as path from 'path';
 import * as tmp from 'tmp';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import { Readable } from 'stream';
+import classPrefix from 'postcss-class-prefix';
 import { MINIO_COMPONENTS_BUCKET } from 'src/minio/constants';
 import typescript from '@rollup/plugin-typescript';
 import babel from '@rollup/plugin-babel';
 import { dts } from 'rollup-plugin-dts';
 import { create } from 'tar';
 import * as fs from 'node:fs';
-import { BuildServiceInterface } from './build-service.interface';
-import { BuildOptions } from './build-options.interface';
-import { BuildResult } from './build-result.interface';
+import { BuildService } from './build-service.interface';
+import { BuildOptions } from '../models/build-options.interface';
+import { BuildResult } from '../models/build-result.interface';
+import { FileExtensionType } from '../models/types';
+import { execSync } from 'node:child_process';
+import { of } from 'rxjs';
 
 @Injectable()
-export class BuildService implements BuildServiceInterface {
+export class RollupBuildService implements BuildService {
+  private readonly logger = new Logger(RollupBuildService.name);
 
-  private readonly logger = new Logger(BuildService.name);
   constructor(@InjectMinio() private readonly minio: Client) {}
 
   async buildAndSave(args: {
@@ -31,16 +34,18 @@ export class BuildService implements BuildServiceInterface {
     const { buffer, options } = args;
 
     const tmpDir = tmp.dirSync({ unsafeCleanup: true }).name;
-    this.logger.log(path.join(tmpDir, `/lib/src/component.${options.fileExtension}`));
+
+    this.logger.log(
+      path.join(tmpDir, `/lib/src/component.${options.fileExtension}`),
+    );
+
     fs.mkdirSync(path.join(tmpDir, '/lib/src'), { recursive: true });
+
     fs.writeFileSync(
       path.join(tmpDir, `/lib/src/component.${options.fileExtension}`),
       buffer,
-      {
-        
-      }
+      {},
     );
-
 
     this.createMain(tmpDir, options);
 
@@ -50,16 +55,10 @@ export class BuildService implements BuildServiceInterface {
       this.createTsconfigJson(tmpDir, options);
     }
 
-    const entry = this.getEntry(tmpDir, options);
-
-    const plugins = this.getPlugins(tmpDir, options);
-
-    const external = this.getExternal(options);
-
     const bundle = await rollup({
-      input: entry,
-      plugins,
-      external,
+      input: this.getEntry(tmpDir, options),
+      plugins: this.getPlugins(tmpDir, options),
+      external: this.getExternal(options),
     });
 
     await bundle.write({
@@ -74,7 +73,11 @@ export class BuildService implements BuildServiceInterface {
     );
 
     if (options.fileExtension === 'ts' || options.fileExtension === 'tsx') {
-      await this.createDts(tmpDir, entry);
+      await this.createDts({
+        tmpDir,
+        entry: this.getEntry(tmpDir, options),
+        options,
+      });
     }
 
     await create(
@@ -104,37 +107,37 @@ export class BuildService implements BuildServiceInterface {
       username: options.username,
       id: objectName,
       dependencies: options.dependencies,
+      version: options.version,
     };
   }
 
   private getBabelPlugin(options: BuildOptions) {
     const babelPresets: string[] = [];
+
     if (options.framework === 'react') {
       babelPresets.push('@babel/preset-react');
+    } else if (options.framework === 'vue') {
+      babelPresets.push('babel-preset-vue');
     }
+
     if (options.fileExtension === 'ts' || options.fileExtension === 'tsx') {
       babelPresets.push('@babel/preset-typescript');
     }
+
     return babel({
       babelHelpers: 'bundled',
-      extensions: ['.js', '.ts', '.tsx', '.jsx'],
+      extensions: this.getExtensions(options),
       presets: babelPresets,
     });
   }
 
   private getPackageJson(options: BuildOptions): string {
-    let dependencies = {};
-    if (options.framework === 'react') {
-      ((dependencies['react'] = '^19.2.4'),
-        (dependencies['react-dom'] = '^19.2.4'));
-    }
-
     return JSON.stringify({
-      name: 'react-lib',
+      name: options.name,
       private: true,
-      version: '0.0.0',
+      version: options.version,
       type: 'module',
-      dependencies,
+      dependencies: options.dependencies,
     });
   }
 
@@ -156,10 +159,19 @@ export class BuildService implements BuildServiceInterface {
     return path.join(tmpDir, `/lib/src/main.${options.fileExtension}`);
   }
 
+  private getExtensions(options: BuildOptions) {
+    const extensions: FileExtensionType[] = ['js', 'jsx', 'ts', 'tsx'];
+
+    if (options.framework === 'vue') {
+      extensions.push('vue');
+    }
+    return extensions.map((extension) => `.${extension}`);
+  }
+
   private getPlugins(tmpDir: string, options: BuildOptions) {
     const plugins = [
       resolve({
-        extensions: ['.js', '.jsx', '.ts', '.tsx'],
+        extensions: this.getExtensions(options),
       }),
       commonjs(),
       this.getBabelPlugin(options),
@@ -172,6 +184,12 @@ export class BuildService implements BuildServiceInterface {
         }),
       );
     }
+
+    plugins.push(
+      postcss({
+        plugins: [classPrefix(`${options.username}__${options.name}__`)],
+      }),
+    );
     return plugins;
   }
 
@@ -181,6 +199,12 @@ export class BuildService implements BuildServiceInterface {
     if (options.framework === 'react') {
       external = ['react', 'react-dom'];
     }
+
+    if (options.framework === 'vue') {
+      external = ['vue'];
+    }
+
+    external.push(...Object.keys(options.dependencies));
 
     return external;
   }
@@ -208,7 +232,12 @@ export class BuildService implements BuildServiceInterface {
     );
   }
 
-  private async createDts(tmpDir: string, entry: string) {
+  private async createDts(args: {
+    tmpDir: string;
+    entry: string;
+    options: BuildOptions;
+  }) {
+    const { tmpDir, entry, options } = args;
     const dtsBundle = await rollup({
       input: entry,
       plugins: [
@@ -216,7 +245,7 @@ export class BuildService implements BuildServiceInterface {
           tsconfig: path.join(tmpDir, '/lib/tsconfig.json'),
         }),
       ],
-      external: ['react', 'react-dom'],
+      external: this.getExternal(options),
     });
 
     await dtsBundle.write({

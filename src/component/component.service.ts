@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Client as MinioClient } from 'minio';
-import { BuildResult } from 'src/build/build-result.interface';
+import { BuildResult } from 'src/build/models/build-result.interface';
 import { MINIO_COMPONENTS_BUCKET } from 'src/minio/constants';
 import { InjectMinio } from 'src/minio/minio.decorator';
 import { Component } from 'src/postgres/entities/component.entity';
@@ -12,7 +12,7 @@ export class ComponentService {
   constructor(
     @InjectRepository(Component)
     private readonly componentRepository: Repository<Component>,
-    @InjectMinio() private readonly minio: MinioClient
+    @InjectMinio() private readonly minio: MinioClient,
   ) {}
 
   async save(args: { build: BuildResult; description: string }) {

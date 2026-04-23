@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ComponentController } from '../component/component.controller';
-import { BuildService } from './build.service';
+import { RollupBuildService } from './services/rollup-build.service';
+import { BuildService } from './services/build-service.interface';
 
 @Module({
   imports: [],
-  providers: [BuildService],
+  providers: [{ provide: BuildService, useClass: RollupBuildService }],
   exports: [BuildService],
 })
 export class BuildModule {}
