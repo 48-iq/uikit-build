@@ -70,4 +70,13 @@ export class ComponentService {
   async getPackage(objectName: string) {
     return await this.minio.getObject(MINIO_COMPONENTS_BUCKET, objectName);
   }
+
+  async load(components: string[]) {
+    const result = await this.componentRepository.createQueryBuilder('component')
+      .where('component.id IN (:...ids)', { ids: components })
+      .getMany();
+    
+    return result;
+  }
+  
 }

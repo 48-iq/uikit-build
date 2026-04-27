@@ -24,6 +24,7 @@ import { SourceService } from 'src/source/source.service';
 import { ComponentMapper } from './component.mapper';
 import { time } from 'console';
 import { FileExtensionType, FrameworkType } from 'src/build/models/types';
+import { Public } from 'src/security/public.decorator';
 
 @Controller('/api/components')
 export class ComponentController {
@@ -120,6 +121,7 @@ export class ComponentController {
     return this.componentMapper.toCursorResultDto(result);
   }
 
+  @Public()  
   @Get('package/:username/:name')
   async getPackage(
     @Param('username') username: string,
@@ -128,4 +130,6 @@ export class ComponentController {
     const id = `${username}/${name}`;
     return new StreamableFile(await this.componentService.getPackage(id));
   }
+
+
 }

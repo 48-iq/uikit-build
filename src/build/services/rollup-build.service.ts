@@ -1,4 +1,4 @@
-import { Injectable, Logger, Param } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Client } from 'minio';
 import { InjectMinio } from 'src/minio/minio.decorator';
 import { rollup } from 'rollup';
@@ -18,14 +18,13 @@ import { BuildService } from './build-service.interface';
 import { BuildOptions } from '../models/build-options.interface';
 import { BuildResult } from '../models/build-result.interface';
 import { FileExtensionType } from '../models/types';
-import { execSync } from 'node:child_process';
-import { of } from 'rxjs';
-
 @Injectable()
-export class RollupBuildService implements BuildService {
+export class RollupBuildService extends BuildService {
   private readonly logger = new Logger(RollupBuildService.name);
 
-  constructor(@InjectMinio() private readonly minio: Client) {}
+  constructor(@InjectMinio() private readonly minio: Client) {
+    super();
+  }
 
   async buildAndSave(args: {
     buffer: Buffer;
@@ -35,19 +34,15 @@ export class RollupBuildService implements BuildService {
 
     const tmpDir = tmp.dirSync({ unsafeCleanup: true }).name;
 
-    this.logger.log(
-      path.join(tmpDir, `/lib/src/component.${options.fileExtension}`),
-    );
-
-    fs.mkdirSync(path.join(tmpDir, '/lib/src'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'lib', 'src'), { recursive: true });
 
     fs.writeFileSync(
-      path.join(tmpDir, `/lib/src/component.${options.fileExtension}`),
+      path.join(tmpDir, 'lib', 'src', 'component.${options.fileExtension}'),
       buffer,
       {},
     );
 
-    this.createMain(tmpDir, options);
+    this.createIndex(tmpDir, options);
 
     this.createPackageJson(tmpDir, options);
 
@@ -156,7 +151,7 @@ export class RollupBuildService implements BuildService {
   }
 
   private getEntry(tmpDir: string, options: BuildOptions): string {
-    return path.join(tmpDir, `/lib/src/main.${options.fileExtension}`);
+    return path.join(tmpDir, 'lib', 'src', `index.${options.fileExtension}`);
   }
 
   private getExtensions(options: BuildOptions) {
@@ -180,7 +175,7 @@ export class RollupBuildService implements BuildService {
     if (options.fileExtension === 'ts' || options.fileExtension === 'tsx') {
       plugins.push(
         typescript({
-          tsconfig: path.join(tmpDir, '/lib/tsconfig.json'),
+          tsconfig: path.join(tmpDir, 'lib', 'tsconfig.json'),
         }),
       );
     }
@@ -223,12 +218,12 @@ export class RollupBuildService implements BuildService {
     );
   }
 
-  private createMain(tmpDir: string, options: BuildOptions) {
-    const main = `export * as ${options.name} from './component.${options.fileExtension}';`;
+  private createIndex(tmpDir: string, options: BuildOptions) {
+    const index = `export * as ${options.name} from './component.${options.fileExtension}';`;
 
     fs.writeFileSync(
-      path.join(tmpDir, `/lib/src/main.${options.fileExtension}`),
-      main,
+      path.join(tmpDir, `/lib/src/index.${options.fileExtension}`),
+      index,
     );
   }
 
