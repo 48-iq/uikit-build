@@ -37,7 +37,7 @@ export class RollupBuildService extends BuildService {
     fs.mkdirSync(path.join(tmpDir, 'lib', 'src'), { recursive: true });
 
     fs.writeFileSync(
-      path.join(tmpDir, 'lib', 'src', 'component.${options.fileExtension}'),
+      path.join(tmpDir, 'lib', 'src', `component.${options.fileExtension}`),
       buffer,
       {},
     );
@@ -46,9 +46,7 @@ export class RollupBuildService extends BuildService {
 
     this.createPackageJson(tmpDir, options);
 
-    if (options.fileExtension === 'ts' || options.fileExtension === 'tsx') {
-      this.createTsconfigJson(tmpDir, options);
-    }
+    this.createTsconfigJson(tmpDir, options);
 
     const bundle = await rollup({
       input: this.getEntry(tmpDir, options),
@@ -67,13 +65,11 @@ export class RollupBuildService extends BuildService {
       path.join(tmpDir, '/dist/package.json'),
     );
 
-    if (options.fileExtension === 'ts' || options.fileExtension === 'tsx') {
-      await this.createDts({
-        tmpDir,
-        entry: this.getEntry(tmpDir, options),
-        options,
-      });
-    }
+    await this.createDts({
+      tmpDir,
+      entry: this.getEntry(tmpDir, options),
+      options,
+    });
 
     await create(
       {
@@ -86,7 +82,7 @@ export class RollupBuildService extends BuildService {
       ['.'],
     );
 
-    const objectName = `${options.username}/${options.name}`;
+    const objectName = `${options.username}/${options.name}-${options.version}`;
 
     const tarStream = fs.createReadStream(path.join(tmpDir, '/tar.tgz'));
 
@@ -115,9 +111,7 @@ export class RollupBuildService extends BuildService {
       babelPresets.push('babel-preset-vue');
     }
 
-    if (options.fileExtension === 'ts' || options.fileExtension === 'tsx') {
-      babelPresets.push('@babel/preset-typescript');
-    }
+    babelPresets.push('@babel/preset-typescript');
 
     return babel({
       babelHelpers: 'bundled',
@@ -151,7 +145,7 @@ export class RollupBuildService extends BuildService {
   }
 
   private getEntry(tmpDir: string, options: BuildOptions): string {
-    return path.join(tmpDir, 'lib', 'src', `index.${options.fileExtension}`);
+    return path.join(tmpDir, 'lib', 'src', `index.ts`);
   }
 
   private getExtensions(options: BuildOptions) {
@@ -168,23 +162,15 @@ export class RollupBuildService extends BuildService {
       resolve({
         extensions: this.getExtensions(options),
       }),
+      typescript({
+        tsconfig: path.join(tmpDir, 'lib', 'tsconfig.json'),
+      }),
       commonjs(),
       this.getBabelPlugin(options),
-    ];
-
-    if (options.fileExtension === 'ts' || options.fileExtension === 'tsx') {
-      plugins.push(
-        typescript({
-          tsconfig: path.join(tmpDir, 'lib', 'tsconfig.json'),
-        }),
-      );
-    }
-
-    plugins.push(
       postcss({
         plugins: [classPrefix(`${options.username}__${options.name}__`)],
-      }),
-    );
+      })
+    ];
     return plugins;
   }
 
@@ -221,10 +207,7 @@ export class RollupBuildService extends BuildService {
   private createIndex(tmpDir: string, options: BuildOptions) {
     const index = `export * as ${options.name} from './component.${options.fileExtension}';`;
 
-    fs.writeFileSync(
-      path.join(tmpDir, `/lib/src/index.${options.fileExtension}`),
-      index,
-    );
+    fs.writeFileSync(path.join(tmpDir, `/lib/src/index.ts`), index);
   }
 
   private async createDts(args: {

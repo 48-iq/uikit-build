@@ -22,7 +22,6 @@ import type { Request, Response } from 'express';
 import { ComponentService } from 'src/component/component.service';
 import { SourceService } from 'src/source/source.service';
 import { ComponentMapper } from './component.mapper';
-import { time } from 'console';
 import { FileExtensionType, FrameworkType } from 'src/build/models/types';
 import { Public } from 'src/security/public.decorator';
 
