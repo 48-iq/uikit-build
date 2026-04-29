@@ -1,6 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ComponentService } from './component.service';
 import { ComponentMapper } from './component.mapper';
+import { Public } from 'src/security/public.decorator';
 
 @Controller('/api/component-load')
 export class ComponentLoadController {
@@ -8,6 +9,7 @@ export class ComponentLoadController {
     private readonly componentMapper: ComponentMapper
   ) {}
 
+  @Public()
   @Get()
   async load(
     @Query('components') ids: string[],
