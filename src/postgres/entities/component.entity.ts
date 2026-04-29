@@ -24,4 +24,7 @@ export class Component {
 
   @Column()
   username: string;
+
+  @Column()
+  version: string;
 }

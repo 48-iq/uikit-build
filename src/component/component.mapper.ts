@@ -10,6 +10,7 @@ export class ComponentMapper {
       name: component.name,
       framework: component.framework,
       description: component.description,
+      version: component.version,
       username: component.username,
       createdAt: component.createdAt.toISOString(),
       updatedAt: component.updatedAt?.toISOString() ?? 'none',

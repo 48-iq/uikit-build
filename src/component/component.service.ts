@@ -23,6 +23,7 @@ export class ComponentService {
     component.name = args.build.name;
     component.username = args.build.username;
     component.createdAt = new Date();
+    component.version = args.build.version;
     component = await this.componentRepository.save(component);
 
     return component;
@@ -36,20 +37,18 @@ export class ComponentService {
   }) {
     const { username, startDate, skip, limit } = args;
     let qb = this.componentRepository.createQueryBuilder('component');
-    if (username) {
+    if (username)
       qb = qb
         .where('component.username = :username', { username })
         .andWhere('component.createdAt < :startDate', { startDate });
-    } else {
-      qb = qb.where('component.createdAt < :startDate', { startDate });
-    }
+    else qb = qb.where('component.createdAt < :startDate', { startDate });
+
     qb = qb.orderBy('component.createdAt', 'DESC');
-    if (skip) {
-      qb = qb.offset(skip);
-    }
-    if (limit) {
-      qb = qb.limit(limit);
-    }
+
+    if (skip) qb = qb.offset(skip);
+
+    if (limit) qb = qb.limit(limit);
+
     const total = await this.componentRepository.count();
     const count = await qb.getCount();
     const itemsLeft = total - (skip ?? 0) - count;
@@ -72,11 +71,11 @@ export class ComponentService {
   }
 
   async load(components: string[]) {
-    const result = await this.componentRepository.createQueryBuilder('component')
+    const result = await this.componentRepository
+      .createQueryBuilder('component')
       .where('component.id IN (:ids)', { ids: components })
       .getMany();
-    
+
     return result;
   }
-  
 }
