@@ -73,7 +73,7 @@ export class ComponentService {
 
   async load(components: string[]) {
     const result = await this.componentRepository.createQueryBuilder('component')
-      .where('component.id IN (:...ids)', { ids: components })
+      .where('component.id IN (:ids)', { ids: components })
       .getMany();
     
     return result;
