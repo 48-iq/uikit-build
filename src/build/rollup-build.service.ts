@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Client } from 'minio';
-import { InjectMinio } from 'src/minio/minio.decorator';
 import { rollup } from 'rollup';
 import postcss from 'rollup-plugin-postcss';
 import * as path from 'path';
@@ -8,22 +7,62 @@ import * as tmp from 'tmp';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import classPrefix from 'postcss-class-prefix';
-import { MINIO_COMPONENTS_BUCKET } from 'src/minio/constants';
 import typescript from '@rollup/plugin-typescript';
 import babel from '@rollup/plugin-babel';
 import { dts } from 'rollup-plugin-dts';
 import { create } from 'tar';
 import * as fs from 'node:fs';
-import {
-  BuildOptions,
-  FileExtensionType,
-} from './types';
+import { InjectMinio } from 'src/minio/minio.decorator';
+import { BuildOptions, FileExtensionType } from './types';
+import { MINIO_COMPONENTS_BUCKET, MINIO_PREVIEW_BUCKET } from 'src/minio/constants';
 
 @Injectable()
 export class RollupBuildService {
   private readonly logger = new Logger(RollupBuildService.name);
 
   constructor(@InjectMinio() private readonly minio: Client) {}
+
+  private async buildPreview(args: { tmpDir: string; options: BuildOptions }) {
+    const { tmpDir, options } = args;
+    this.logger.log('=== buildPreview START, plugins: NO typescript ===');
+
+    if (Object.keys(options.dependencies).length > 0) {
+      const { execSync } = await import('child_process');
+      const deps = Object.entries(options.dependencies)
+        .map(([name, ver]) => `${name}@${ver}`)
+        .join(' ');
+      execSync(`npm install ${deps}`, { cwd: path.join(tmpDir, 'lib') });
+    }
+
+    const bundle = await rollup({
+      input: this.getEntry(tmpDir, options),
+      plugins: [
+        resolve({
+          extensions: this.getExtensions(options),
+          browser: true,
+          preferBuiltins: false,
+        }),
+        commonjs(),
+        this.getBabelPlugin(options),
+        postcss({
+          plugins: [classPrefix(`${options.username}__${options.name}__`)],
+        }),
+      ],
+      external: ['react', 'react-dom'],
+    });
+
+    await bundle.write({
+      file: path.join(tmpDir, 'preview.js'),
+      format: 'esm',
+      inlineDynamicImports: true,
+    });
+
+    await this.minio.putObject(
+      MINIO_PREVIEW_BUCKET,
+      options.id,
+      fs.createReadStream(path.join(tmpDir, 'preview.js')),
+    );
+  }
 
   async buildAndSave(args: { buffer: Buffer; options: BuildOptions }) {
     const { buffer, options } = args;
@@ -64,6 +103,11 @@ export class RollupBuildService {
     await this.createDts({
       tmpDir,
       entry: this.getEntry(tmpDir, options),
+      options,
+    });
+
+    await this.buildPreview({
+      tmpDir,
       options,
     });
 
@@ -142,6 +186,7 @@ export class RollupBuildService {
     const plugins = [
       resolve({
         extensions: this.getExtensions(options),
+        browser: true,
       }),
       typescript({
         tsconfig: path.join(tmpDir, 'lib', 'tsconfig.json'),
@@ -166,7 +211,7 @@ export class RollupBuildService {
       external = ['vue'];
     }
 
-    external.push(...Object.keys(options.dependencies));
+    //external.push(...Object.keys(options.dependencies));
 
     return external;
   }
@@ -186,9 +231,11 @@ export class RollupBuildService {
   }
 
   private createIndex(tmpDir: string, options: BuildOptions) {
-    const index = `export * as ${options.name} from './component.${options.fileExtension}';`;
+    const index =
+      `export * from './component.${options.fileExtension}';\n` +
+      `export { default } from './component.${options.fileExtension}';`;
 
-    fs.writeFileSync(path.join(tmpDir, `/lib/src/index.ts`), index);
+    fs.writeFileSync(path.join(tmpDir, 'lib', 'src', 'index.ts'), index);
   }
 
   private async createDts(args: {

@@ -3,8 +3,12 @@
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
-  "setupFilesAfterEnv": ["./setup-tests.e2e.ts"],
+  "globalSetup": "./setup-tests.e2e.ts",
+  "globalTeardown": "./teardown-tests.e2e.ts",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/../src/$1"
   }
 }

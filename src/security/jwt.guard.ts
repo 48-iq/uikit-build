@@ -26,10 +26,10 @@ export class JwtGuard implements CanActivate {
     if (isPublic) {
       return true;
     }
-    const jwt = request.headers.authorization;
     const token = this.extractTokenFromHeader(request);
     if (!token) return false;
     try {
+      this.logger.log(token);
       const payload = await this.jwtService.decode(token);
       request['authPayload'] = payload;
       return true;

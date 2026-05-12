@@ -1,7 +1,7 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectMinio } from './minio.decorator';
 import { Client } from 'minio';
-import { MINIO_COMPONENTS_BUCKET, MINIO_SOURCE_BUCKET } from './constants';
+import { MINIO_COMPONENTS_BUCKET, MINIO_PREVIEW_BUCKET, MINIO_SOURCE_BUCKET } from './constants';
 
 @Injectable()
 export class MinioInitService implements OnApplicationBootstrap {
@@ -20,6 +20,13 @@ export class MinioInitService implements OnApplicationBootstrap {
     );
     if (!isSourceBucketExists) {
       await this.minio.makeBucket(MINIO_SOURCE_BUCKET);
+    }
+
+    const isPreviewBucketExists = await this.minio.bucketExists(
+      MINIO_PREVIEW_BUCKET,
+    );
+    if (!isPreviewBucketExists) {
+      await this.minio.makeBucket(MINIO_PREVIEW_BUCKET);
     }
   }
 }

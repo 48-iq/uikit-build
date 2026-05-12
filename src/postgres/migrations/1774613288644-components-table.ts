@@ -5,7 +5,7 @@ export class ComponentsTable1774613288644 implements MigrationInterface {
     queryRunner.query(`
       CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
       CREATE TABLE "components" (
-        "id" char varying NOT NULL ,
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "name" character varying NOT NULL,
         "description" character varying NOT NULL,
         "username" character varying NOT NULL,

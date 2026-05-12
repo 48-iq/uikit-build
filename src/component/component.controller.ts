@@ -24,7 +24,7 @@ import { FileExtensionType, FrameworkType } from 'src/build/types';
 import { Public } from 'src/security/public.decorator';
 import { RollupBuildService } from 'src/build/rollup-build.service';
 
-@Controller('/api/component')
+@Controller('/api/components')
 export class ComponentController {
   constructor(
     private readonly buildService: RollupBuildService,
