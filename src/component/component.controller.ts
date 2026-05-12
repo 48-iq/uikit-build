@@ -6,6 +6,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Param,
   Post,
   Query,
@@ -26,6 +27,9 @@ import { RollupBuildService } from 'src/build/rollup-build.service';
 
 @Controller('/api/components')
 export class ComponentController {
+
+  private readonly logger = new Logger(ComponentController.name);
+
   constructor(
     private readonly buildService: RollupBuildService,
     private readonly componentService: ComponentService,
@@ -40,6 +44,7 @@ export class ComponentController {
     @Body() body: ComponentCreateDto,
     @Req() req: Request,
   ) {
+    this.logger.log(JSON.stringify(req['authPayload']))
     const username = req['authPayload']['username'];
 
     const framework = body.framework as FrameworkType;

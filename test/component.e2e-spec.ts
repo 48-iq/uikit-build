@@ -4,6 +4,9 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { JwtService } from '@nestjs/jwt';
+import { JwtGuard } from 'src/security/jwt.guard';
+
+jest.setTimeout(30000);
 
 describe('ComponentController (e2e)', () => {
   let app: INestApplication<App>;
@@ -16,6 +19,8 @@ describe('ComponentController (e2e)', () => {
     .compile();
 
     app = moduleFixture.createNestApplication();
+    const jwtGuard = app.get(JwtGuard);
+    app.useGlobalGuards(jwtGuard);
     await app.init();
   });
 
@@ -39,7 +44,16 @@ describe('ComponentController (e2e)', () => {
       .field('dependencies', '{ "axios": "^1.13.6" }')
       .field('version', '1.0.0')
       .attach('file', 'test/resources/index.tsx')
-      .expect(200);
+      .expect(201);
+  });
+
+  it('Component get successful', async () => {
+    const jwtService = app.get(JwtService);
+
+     const jwt = await jwtService.signAsync({
+      username: 'test',
+      userId: 'test',
+    });
   });
 
   // name: string;

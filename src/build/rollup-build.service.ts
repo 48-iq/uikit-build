@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { execSync } from 'child_process';
 import { Client } from 'minio';
 import { rollup } from 'rollup';
 import postcss from 'rollup-plugin-postcss';
@@ -27,7 +28,6 @@ export class RollupBuildService {
     this.logger.log('=== buildPreview START, plugins: NO typescript ===');
 
     if (Object.keys(options.dependencies).length > 0) {
-      const { execSync } = await import('child_process');
       const deps = Object.entries(options.dependencies)
         .map(([name, ver]) => `${name}@${ver}`)
         .join(' ');
@@ -235,7 +235,7 @@ export class RollupBuildService {
       `export * from './component.${options.fileExtension}';\n` +
       `export { default } from './component.${options.fileExtension}';`;
 
-    fs.writeFileSync(path.join(tmpDir, 'lib', 'src', 'index.ts'), index);
+    fs.writeFileSync(path.join(tmpDir, '/lib/src/index.ts'), index);
   }
 
   private async createDts(args: {
