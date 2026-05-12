@@ -1,7 +1,6 @@
 import {
   ComponentCreateDto,
   ComponentCreateResultDto,
-  ComponentEntityDto,
 } from '@48-iq/uikit-dto-lib';
 import {
   Body,
@@ -17,18 +16,18 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { BuildService } from '../build/services/build-service.interface';
 import type { Request, Response } from 'express';
 import { ComponentService } from 'src/component/component.service';
 import { SourceService } from 'src/source/source.service';
 import { ComponentMapper } from './component.mapper';
-import { FileExtensionType, FrameworkType } from 'src/build/models/types';
+import { FileExtensionType, FrameworkType } from 'src/build/types';
 import { Public } from 'src/security/public.decorator';
+import { RollupBuildService } from 'src/build/rollup-build.service';
 
-@Controller('/api/components')
+@Controller('/api/component')
 export class ComponentController {
   constructor(
-    private readonly buildService: BuildService,
+    private readonly buildService: RollupBuildService,
     private readonly componentService: ComponentService,
     private readonly sourceService: SourceService,
     private readonly componentMapper: ComponentMapper,
@@ -42,14 +41,30 @@ export class ComponentController {
     @Req() req: Request,
   ) {
     const username = req['authPayload']['username'];
+
     const framework = body.framework as FrameworkType;
+
     const fileExtension = body.fileExtension as FileExtensionType;
+
     const css = JSON.parse(body.css);
+
     const dependencies = JSON.parse(body.dependencies);
-    const build = await this.buildService.buildAndSave({
+
+    const component = await this.componentService.save({
+      username,
+      name: body.name,
+      version: body.version,
+      description: body.description,
+      framework,
+    });
+
+    await this.sourceService.save(file.buffer, component.id);
+
+    await this.buildService.buildAndSave({
       buffer: file.buffer,
       options: {
-        version: '0.0.0', //TODO: body.version,
+        id: component.id,
+        version: body.version,
         name: body.name,
         framework,
         fileExtension: fileExtension,
@@ -59,16 +74,10 @@ export class ComponentController {
       },
     });
 
-    const component = await this.componentService.save({
-      build,
-      description: body.description,
-    });
-
-    await this.sourceService.save(file.buffer, build.id);
-
     const result = new ComponentCreateResultDto({
       result: this.componentMapper.toEntityDto(component),
     });
+
     return result;
   }
 
@@ -78,9 +87,10 @@ export class ComponentController {
     @Param('name') name: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const componentId = `${username}/${name}`;
-
-    const component = await this.componentService.getOne(componentId);
+    const component = await this.componentService.getByUsernameAndName({
+      name,
+      username,
+    });
 
     return this.componentMapper.toEntityDto(component);
   }
@@ -120,7 +130,7 @@ export class ComponentController {
     return this.componentMapper.toCursorResultDto(result);
   }
 
-  @Public()  
+  @Public()
   @Get('package/:username/:name')
   async getPackage(
     @Param('username') username: string,
@@ -129,6 +139,4 @@ export class ComponentController {
     const id = `${username}/${name}`;
     return new StreamableFile(await this.componentService.getPackage(id));
   }
-
-
 }

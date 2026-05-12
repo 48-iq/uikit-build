@@ -14,22 +14,18 @@ import babel from '@rollup/plugin-babel';
 import { dts } from 'rollup-plugin-dts';
 import { create } from 'tar';
 import * as fs from 'node:fs';
-import { BuildService } from './build-service.interface';
-import { BuildOptions } from '../models/build-options.interface';
-import { BuildResult } from '../models/build-result.interface';
-import { FileExtensionType } from '../models/types';
+import {
+  BuildOptions,
+  FileExtensionType,
+} from './types';
+
 @Injectable()
-export class RollupBuildService extends BuildService {
+export class RollupBuildService {
   private readonly logger = new Logger(RollupBuildService.name);
 
-  constructor(@InjectMinio() private readonly minio: Client) {
-    super();
-  }
+  constructor(@InjectMinio() private readonly minio: Client) {}
 
-  async buildAndSave(args: {
-    buffer: Buffer;
-    options: BuildOptions;
-  }): Promise<BuildResult> {
+  async buildAndSave(args: { buffer: Buffer; options: BuildOptions }) {
     const { buffer, options } = args;
 
     const tmpDir = tmp.dirSync({ unsafeCleanup: true }).name;
@@ -82,36 +78,21 @@ export class RollupBuildService extends BuildService {
       ['.'],
     );
 
-    const objectName = `${options.username}/${options.name}-${options.version}`;
-
     const tarStream = fs.createReadStream(path.join(tmpDir, '/tar.tgz'));
 
-    await this.minio.putObject(MINIO_COMPONENTS_BUCKET, objectName, tarStream);
+    await this.minio.putObject(MINIO_COMPONENTS_BUCKET, options.id, tarStream);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
-
-    return {
-      framework: options.framework,
-      fileExtension: options.fileExtension,
-      name: options.name,
-      css: options.css,
-      username: options.username,
-      id: objectName,
-      dependencies: options.dependencies,
-      version: options.version,
-    };
   }
 
   private getBabelPlugin(options: BuildOptions) {
-    const babelPresets: string[] = [];
+    const babelPresets: string[] = ['@babel/preset-typescript'];
 
     if (options.framework === 'react') {
       babelPresets.push('@babel/preset-react');
     } else if (options.framework === 'vue') {
       babelPresets.push('babel-preset-vue');
     }
-
-    babelPresets.push('@babel/preset-typescript');
 
     return babel({
       babelHelpers: 'bundled',
@@ -169,7 +150,7 @@ export class RollupBuildService extends BuildService {
       this.getBabelPlugin(options),
       postcss({
         plugins: [classPrefix(`${options.username}__${options.name}__`)],
-      })
+      }),
     ];
     return plugins;
   }

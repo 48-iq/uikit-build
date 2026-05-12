@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Client as MinioClient } from 'minio';
-import { BuildResult } from 'src/build/models/build-result.interface';
 import { MINIO_COMPONENTS_BUCKET } from 'src/minio/constants';
 import { InjectMinio } from 'src/minio/minio.decorator';
 import { Component } from 'src/postgres/entities/component.entity';
@@ -15,15 +14,29 @@ export class ComponentService {
     @InjectMinio() private readonly minio: MinioClient,
   ) {}
 
-  async save(args: { build: BuildResult; description: string }) {
+  async save(args: {
+    username: string;
+    name: string;
+    version: string;
+    description: string;
+    framework: string;
+  }) {
+    const { username, name, version, description, framework } = args;
+
     let component = new Component();
-    component.id = args.build.id;
-    component.framework = args.build.framework;
-    component.description = args.description;
-    component.name = args.build.name;
-    component.username = args.build.username;
+
+    component.framework = framework;
+
+    component.description = description;
+
+    component.name = name;
+
+    component.username = username;
+
     component.createdAt = new Date();
-    component.version = args.build.version;
+
+    component.version = version;
+
     component = await this.componentRepository.save(component);
 
     return component;
@@ -62,8 +75,9 @@ export class ComponentService {
     };
   }
 
-  async getOne(id: string) {
-    return await this.componentRepository.findOneByOrFail({ id });
+  async getByUsernameAndName(args: { name: string; username: string }) {
+    const { name, username } = args;
+    return await this.componentRepository.findOneByOrFail({ name, username });
   }
 
   async getPackage(objectName: string) {

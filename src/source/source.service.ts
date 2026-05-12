@@ -11,7 +11,12 @@ export class SourceService {
     await this.minio.putObject(MINIO_SOURCE_BUCKET, id, buffer);
   }
 
-  async get(id: string) {
-    return await this.minio.getObject(MINIO_SOURCE_BUCKET, id);
+  async getText(id: string): Promise<string> {
+    const file = await this.minio.getObject(MINIO_SOURCE_BUCKET, id);
+    let result = '';
+    for await (const chunk of file) {
+      result += chunk
+    }
+    return result;
   }
 }
