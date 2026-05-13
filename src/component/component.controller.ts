@@ -220,4 +220,21 @@ export class ComponentController {
     const id = `${username}/${name}`;
     return new StreamableFile(await this.componentService.getPackage(id));
   }
+
+  @Public()
+  @Get('/preview/:username/:name')
+  async previewMeta(
+    @Param('username') username: string,
+    @Param('name') name: string,
+  ) {
+    const component =
+      await this.componentService.getByUsernameAndName({
+        username,
+        name,
+      });
+
+    return {
+      url: `/api/component/preview/${component.id}`,
+    };
+  }
 }
