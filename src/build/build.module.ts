@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ComponentController } from '../component/component.controller';
+import { ComponentController } from '../components/component.controller';
 import { RollupBuildService } from './rollup-build.service';
 
 @Module({

@@ -14,25 +14,6 @@ export class ComponentService {
     @InjectMinio() private readonly minio: MinioClient,
   ) {}
 
-  async getPreview(id: string) {
-    try {
-      const stat = await this.minio.statObject(
-        'preview',
-        id,
-      );
-
-      console.log(stat);
-
-      return await this.minio.getObject(
-        'preview',
-        id,
-      );
-    } catch (e) {
-      console.error(e);
-      throw e;
-    }
-  }
-
   async save(args: {
     username: string;
     name: string;
@@ -99,8 +80,15 @@ export class ComponentService {
     return await this.componentRepository.findOneByOrFail({ name, username });
   }
 
-  async getPackage(objectName: string) {
-    return await this.minio.getObject(MINIO_COMPONENTS_BUCKET, objectName);
+  async getPackage(username: string, name: string) {
+    const component = await this.componentRepository.findOneByOrFail({
+      username,
+      name
+    })
+    if (!component) {
+      throw new Error('Component not found');
+    }
+    return await this.minio.getObject(MINIO_COMPONENTS_BUCKET, component.id);
   }
 
   async load(components: string[]) {

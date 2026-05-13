@@ -23,9 +23,8 @@ export class RollupBuildService {
 
   constructor(@InjectMinio() private readonly minio: Client) {}
 
-  private async buildPreview(args: { tmpDir: string; options: BuildOptions }) {
+  private async buildAndSavePreview(args: { tmpDir: string; options: BuildOptions }) {
     const { tmpDir, options } = args;
-    this.logger.log('=== buildPreview START, plugins: NO typescript ===');
 
     if (Object.keys(options.dependencies).length > 0) {
       const deps = Object.entries(options.dependencies)
@@ -59,7 +58,7 @@ export class RollupBuildService {
 
     await this.minio.putObject(
       MINIO_PREVIEW_BUCKET,
-      options.id,
+      `${options.id}.js`,
       fs.createReadStream(path.join(tmpDir, 'preview.js')),
     );
   }
@@ -106,7 +105,7 @@ export class RollupBuildService {
       options,
     });
 
-    await this.buildPreview({
+    await this.buildAndSavePreview({
       tmpDir,
       options,
     });
