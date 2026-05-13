@@ -30,7 +30,7 @@ export class PreviewController {
   // }
 
   @Public()
-  @Get('/:id')
+  @Get('/:id.js')
   async preview(
     @Param('id') id: string,
     @Res({ passthrough: true }) res: Response,
@@ -82,7 +82,7 @@ export class PreviewController {
               const React = await import('react');
               window.React = React.default ?? React;
               const { createRoot } = await import('react-dom/client');
-              const mod = await import('/api/components/previews/${id}');
+              const mod = await import('/api/components/previews/${id}.js');
               document.getElementById('root').innerHTML = 
                 '<pre>' + JSON.stringify(Object.keys(mod)) + '</pre>';
               const Component = mod.default 
