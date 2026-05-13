@@ -13,21 +13,21 @@ export class PreviewController {
   ) {
   }
 
-  @Public()
-  @Get('/:username/:name')
-  async previewMeta(
-    @Param('username') username: string,
-    @Param('name') name: string,
-  ) {
-    const component = await this.componentService.getByUsernameAndName({
-      username,
-      name,
-    });
+  // @Public()
+  // @Get('/:username/:name')
+  // async previewMeta(
+  //   @Param('username') username: string,
+  //   @Param('name') name: string,
+  // ) {
+  //   const component = await this.componentService.getByUsernameAndName({
+  //     username,
+  //     name,
+  //   });
 
-    return {
-      url: `/api/components/previews/${component.id}`,
-    };
-  }
+  //   return {
+  //     url: `/api/components/previews/${component.id}`,
+  //   };
+  // }
 
   @Public()
   @Get('/:id')
@@ -82,7 +82,7 @@ export class PreviewController {
               const React = await import('react');
               window.React = React.default ?? React;
               const { createRoot } = await import('react-dom/client');
-              const mod = await import('/api/components/previews/${id}.js');
+              const mod = await import('/api/components/previews/${id}');
               document.getElementById('root').innerHTML = 
                 '<pre>' + JSON.stringify(Object.keys(mod)) + '</pre>';
               const Component = mod.default 

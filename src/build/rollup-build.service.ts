@@ -58,7 +58,7 @@ export class RollupBuildService {
 
     await this.minio.putObject(
       MINIO_PREVIEW_BUCKET,
-      `${options.id}.js`,
+      options.id,
       fs.createReadStream(path.join(tmpDir, 'preview.js')),
     );
   }
