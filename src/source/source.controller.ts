@@ -1,6 +1,6 @@
 import { Controller, Get, Param } from "@nestjs/common";
 import { SourceService } from "./source.service";
-@Controller('/api/component/source')
+@Controller('/api/components/source')
 export class SourceController {
 
   constructor(  

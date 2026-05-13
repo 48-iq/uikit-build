@@ -37,6 +37,82 @@ export class ComponentController {
     private readonly componentMapper: ComponentMapper,
   ) {}
 
+
+    
+  @Public()
+  @Get('/preview-page/:id')
+  async previewPage(@Param('id') id: string) {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <script type="importmap">
+          {
+            "imports": {
+              "react": "https://esm.sh/react@18",
+              "react-dom": "https://esm.sh/react-dom@18",
+              "react-dom/client": "https://esm.sh/react-dom@18/client"
+            }
+          }
+          </script>
+        </head>
+        <body>
+          <div id="root"></div>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+            }
+          </style>
+          <script type="module">
+            window.onerror = (...args) => {
+              document.body.innerHTML =
+                '<pre style="color:red">' + JSON.stringify(args, null, 2) + '</pre>';
+            };
+            try {
+              const React = await import('react');
+              window.React = React.default ?? React;
+              const { createRoot } = await import('react-dom/client');
+              const mod = await import('/api/component/preview/${id}.js');
+              document.getElementById('root').innerHTML = 
+                '<pre>' + JSON.stringify(Object.keys(mod)) + '</pre>';
+              const Component = mod.default 
+                ?? Object.values(mod).find(v => typeof v === 'function');
+              if (!Component) throw new Error('No component found in module: ' + JSON.stringify(Object.keys(mod)));
+              createRoot(document.getElementById('root')).render(
+                React.createElement(Component)
+              );
+            } catch (e) {
+              document.body.innerHTML = '<pre style="color:red">' + e.stack + '</pre>';
+            }
+          </script>
+        </body>
+      </html>
+      `;
+  }
+
+  @Public()
+  @Get('/preview/:id.js')
+  async preview(
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const stream =
+      await this.componentService.getPreview(id);
+
+    res.set({
+      'Content-Type': 'application/javascript',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache',
+    });
+
+    return new StreamableFile(stream);
+  }
+
+
   @Post('/upload')
   @UseInterceptors(FileInterceptor('file'))
   async build(

@@ -47,13 +47,18 @@ describe('ComponentController (e2e)', () => {
       .expect(201);
   });
 
-  it('Component get successful', async () => {
+  it('Components get successful', async () => {
     const jwtService = app.get(JwtService);
 
-     const jwt = await jwtService.signAsync({
+    const jwt = await jwtService.signAsync({
       username: 'test',
       userId: 'test',
     });
+
+    
+
+    return request(app.getHttpServer())
+      .get('/api/component')
   });
 
   // name: string;
