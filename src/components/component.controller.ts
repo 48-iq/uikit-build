@@ -22,7 +22,7 @@ import { Public } from 'src/security/public.decorator';
 import { RollupBuildService } from 'src/build/rollup-build.service';
 import { ComponentCreateDto } from 'src/components/dto/component-create.dto';
 
-@Controller('/api/components')
+@Controller('/api/components/main')
 export class ComponentController {
   private readonly logger = new Logger(ComponentController.name);
 
