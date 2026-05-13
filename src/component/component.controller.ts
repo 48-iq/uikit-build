@@ -234,7 +234,7 @@ export class ComponentController {
       });
 
     return {
-      url: `/api/component/preview/${component.id}`,
+      url: `/api/components/preview/${component.id}`,
     };
   }
 }
