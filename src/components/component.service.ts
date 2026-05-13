@@ -83,8 +83,9 @@ export class ComponentService {
   async getPackage(username: string, name: string) {
     const component = await this.componentRepository.findOneByOrFail({
       username,
-      name
-    })
+      name,
+    });
+
     if (!component) {
       throw new Error('Component not found');
     }
