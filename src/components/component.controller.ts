@@ -21,6 +21,8 @@ import { FileExtensionType, FrameworkType } from 'src/build/types';
 import { Public } from 'src/security/public.decorator';
 import { RollupBuildService } from 'src/build/rollup-build.service';
 import { ComponentCreateDto } from 'src/components/dto/component-create.dto';
+import { BuildTrackerService } from 'src/build/build-tracker.service';
+import { BuildStatus } from 'src/postgres/entities/build.entity';
 
 @Controller('/api/components/main')
 export class ComponentController {
@@ -31,6 +33,7 @@ export class ComponentController {
     private readonly componentService: ComponentService,
     private readonly sourceService: SourceService,
     private readonly componentMapper: ComponentMapper,
+    private buildTracker: BuildTrackerService,
   ) {}
 
   @Post('/upload')
@@ -44,11 +47,8 @@ export class ComponentController {
     const username = req['authPayload']['username'];
 
     const framework = body.framework as FrameworkType;
-
     const fileExtension = body.fileExtension as FileExtensionType;
-
     const css = JSON.parse(body.css);
-
     const dependencies = JSON.parse(body.dependencies);
 
     const component = await this.componentService.save({
@@ -61,23 +61,43 @@ export class ComponentController {
 
     await this.sourceService.save(file.buffer, component.id);
 
-    await this.buildService.buildAndSave({
-      buffer: file.buffer,
-      options: {
-        id: component.id,
-        version: body.version,
-        name: body.name,
-        framework,
-        fileExtension: fileExtension,
-        css: css,
-        username,
-        dependencies: dependencies,
-      },
+    const build = await this.buildTracker.createBuild({
+      username,
+      name: component.name,
+      version: component.version,
+      componentId: component.id,
     });
 
-    const result = this.componentMapper.toEntityResultDto(component);
+    try {
+      await this.buildService.buildAndSave({
+        buffer: file.buffer,
+        options: {
+          id: component.id,
+          version: body.version,
+          name: body.name,
+          framework,
+          fileExtension,
+          css,
+          username,
+          dependencies,
+        },
+        buildId: build.id,
+      });
 
-    return result;
+      await this.buildTracker.finishBuild(build.id, BuildStatus.SUCCESS);
+
+      return this.componentMapper.toEntityResultDto(component);
+    } catch (error: any) {
+      this.logger.error(`Build failed for ${component.username}/${component.name}`, error);
+
+      await this.buildTracker.finishBuild(
+        build.id,
+        BuildStatus.FAILED,
+        error.message || 'Unknown error',
+      );
+
+      throw error;
+    }
   }
 
   @Public()

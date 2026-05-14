@@ -9,7 +9,11 @@ import { ComponentMapper } from './component.mapper';
 import { ComponentLoadController } from './component-load.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Component]), BuildModule, SourceModule],
+  imports: [
+    TypeOrmModule.forFeature([Component]),
+    BuildModule,
+    SourceModule,
+  ],
   providers: [ComponentService, ComponentMapper],
   exports: [ComponentService],
   controllers: [ComponentController, ComponentLoadController],
