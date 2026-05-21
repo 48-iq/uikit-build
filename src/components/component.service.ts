@@ -42,37 +42,58 @@ export class ComponentService {
     return component;
   }
 
-  async getMany(args: {
+  async getManyByFilters(args: {
     username?: string;
     startDate: Date;
     skip?: number;
     limit?: number;
+    query?: string;
+    framework?: string;
+    sort?: string;
   }) {
-    const { username, startDate, skip, limit } = args;
-    let qb = this.componentRepository.createQueryBuilder('component');
-    if (username)
-      qb = qb
-        .where('component.username = :username', { username })
-        .andWhere('component.createdAt < :startDate', { startDate });
-    else qb = qb.where('component.createdAt < :startDate', { startDate });
+    const { username, startDate, skip, limit, query, framework } = args;
 
-    qb = qb.orderBy('component.createdAt', 'DESC');
+    let qb = this.componentRepository
+      .createQueryBuilder('component')
+      .where('1 = 1');
+
+    if (username)
+      qb = qb.andWhere('component.username = :username', { username });
+
+    if (startDate)
+      qb = qb.andWhere('component.createdAt < :startDate', { startDate });
+
+    if (query)
+      qb = qb.andWhere(
+        `component.username || '/' || component.name || '/' || component.version LIKE :query`,
+        { query: `%${query}%` },
+      );
+ 
+    if (framework)
+      qb = qb.andWhere('component.framework = :framework', { framework });
+
+    if (!args.sort || args.sort === 'desk') {
+      qb = qb.orderBy('component.createdAt', 'DESC');
+    } else if (args.sort === 'asc'){
+      qb = qb.orderBy('component.createdAt', 'ASC');
+    }
 
     if (skip) qb = qb.offset(skip);
 
     if (limit) qb = qb.limit(limit);
 
-    const total = await this.componentRepository.count();
+    const total = await this.componentRepository.count();  
     const count = await qb.getCount();
     const itemsLeft = total - (skip ?? 0) - count;
 
     const components = await qb.getMany();
+
     return {
       components,
       itemsLeft,
       startDate,
       itemsSkipped: skip ?? 0,
-    };
+    }  
   }
 
   async getByUsernameAndName(args: { name: string; username: string }) {

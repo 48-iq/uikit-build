@@ -96,40 +96,27 @@ export class ComponentController {
   }
 
   @Public()
-  @Get('/:username')
-  async getManyByUser(
-    @Param('username') username: string,
-    @Query('startDate') startDate?: string,
-    @Query('skip') skip?: number,
-    @Query('limit') limit?: number,
-  ) {
-    const date = startDate === undefined ? new Date() : new Date(startDate);
-
-    const result = await this.componentService.getMany({
-      username,
-      startDate: date,
-      skip,
-      limit,
-    });
-
-    return this.componentMapper.toCursorResultDto(result);
-  }
-
-  @Public()
   @Get()
   async getMany(
     @Query('startDate') startDate?: string,
     @Query('skip') skip?: number,
     @Query('limit') limit?: number,
+    @Query('query') query?: string,
+    @Query('framework') framework?: string,
+    @Query('sort') sort?: string,
   ) {
-    const date = startDate === undefined ? new Date() : new Date(startDate);
-    const result = await this.componentService.getMany({
-      startDate: date,
+    
+    const result = await this.componentService.getManyByFilters({
+      startDate: startDate === undefined ? new Date() : new Date(startDate),
       skip,
-      limit,
-      username: undefined,
+      limit: limit === undefined ? 20 : limit,
+      query,
+      framework,
+      sort: sort === undefined ? 'desc' : sort === 'asc' ? 'asc' : 'desc',
     });
-    return this.componentMapper.toCursorResultDto(result);
+
+    return this.componentMapper.toCursorDto(result);
+    
   }
 
   @Public()
