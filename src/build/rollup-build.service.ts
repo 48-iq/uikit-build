@@ -16,12 +16,13 @@ import * as fs from 'node:fs';
 import { InjectMinio } from 'src/minio/minio.decorator';
 import { BuildOptions, FileExtensionType } from './types';
 import { MINIO_COMPONENTS_BUCKET, MINIO_PREVIEW_BUCKET } from 'src/minio/constants';
+import { BuildTrackerService } from './build-tracker.service';
 
 @Injectable()
 export class RollupBuildService {
   private readonly logger = new Logger(RollupBuildService.name);
 
-  constructor(@InjectMinio() private readonly minio: Client) {}
+  constructor(@InjectMinio() private readonly minio: Client, private buildTracker: BuildTrackerService,) {}
 
   private async buildAndSavePreview(args: { tmpDir: string; options: BuildOptions }) {
     const { tmpDir, options } = args;
@@ -47,7 +48,7 @@ export class RollupBuildService {
           plugins: [classPrefix(`${options.username}__${options.name}__`)],
         }),
       ],
-      external: ['react', 'react-dom'],
+      external: ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client'],
     });
 
     await bundle.write({
@@ -63,84 +64,130 @@ export class RollupBuildService {
     );
   }
 
-  async buildAndSave(args: { buffer: Buffer; options: BuildOptions }) {
-    const { buffer, options } = args;
+  async buildAndSave(args: { buffer: Buffer; options: BuildOptions; buildId: string }) {
+    const { buffer, options, buildId } = args;
 
-    const tmpDir = tmp.dirSync({ unsafeCleanup: true }).name;
+    const originalConsoleLog = console.log;
+    const originalConsoleError = console.error;
+    const originalConsoleWarn = console.warn;
+    const originalConsoleDebug = console.debug;
 
-    fs.mkdirSync(path.join(tmpDir, 'lib', 'src'), { recursive: true });
+    try {
+      await this.buildTracker.appendLog(buildId, `Starting build: ${options.username}/${options.name}`);
 
-    fs.writeFileSync(
-      path.join(tmpDir, 'lib', 'src', `component.${options.fileExtension}`),
-      buffer,
-      {},
-    );
+      const tmpDir = tmp.dirSync({ unsafeCleanup: true }).name;
 
-    this.createIndex(tmpDir, options);
+      const captureLog = (msg: any, level: 'info' | 'warn' | 'error' | 'debug' = 'info') => {
+        try {
+          const message = typeof msg === 'string' ? msg : msg?.message || JSON.stringify(msg, null, 2);
+          this.buildTracker.appendLog(buildId, message, level).catch((e) => {
+            originalConsoleError('Failed to save log:', e);
+          });
+        } catch (e) {
+          originalConsoleError('Log capture error:', e);
+        }
+      };
 
-    this.createPackageJson(tmpDir, options);
+      console.log = (...args: any[]) => { originalConsoleLog(...args); captureLog(args.join(' '), 'info'); };
+      console.error = (...args: any[]) => { originalConsoleError(...args); captureLog(args.join(' '), 'error'); };
+      console.warn = (...args: any[]) => { originalConsoleWarn(...args); captureLog(args.join(' '), 'warn'); };
+      console.debug = (...args: any[]) => { originalConsoleDebug(...args); captureLog(args.join(' '), 'debug'); };
 
-    this.createTsconfigJson(tmpDir, options);
+      fs.mkdirSync(path.join(tmpDir, 'lib', 'src'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, 'lib', 'src', `component.${options.fileExtension}`),
+        buffer,
+      );
 
-    const bundle = await rollup({
-      input: this.getEntry(tmpDir, options),
-      plugins: this.getPlugins(tmpDir, options),
-      external: this.getExternal(options),
-    });
+      this.createIndex(tmpDir, options);
+      this.createPackageJson(tmpDir, options);
+      this.createTsconfigJson(tmpDir, options);
+      await this.buildTracker.appendLog(buildId, 'Project structure created');
 
-    await bundle.write({
-      dir: path.join(tmpDir, '/dist'),
-      format: 'esm',
-      preserveModules: true,
-    });
+      const bundle = await rollup({
+        input: this.getEntry(tmpDir, options),
+        plugins: this.getPlugins(tmpDir, options),
+        external: this.getExternal(options),
+        onwarn: (warning, warn) => {
+          const message = warning.message || JSON.stringify(warning, null, 2);
+          console.warn(`[Rollup WARN] ${message}`);
+          this.buildTracker.appendLog(buildId, message, 'warn');
+          warn(warning);
+        },
+      });
+      await this.buildTracker.appendLog(buildId, 'Rollup bundle created');
 
-    fs.copyFileSync(
-      path.join(tmpDir, '/lib/package.json'),
-      path.join(tmpDir, '/dist/package.json'),
-    );
+      await bundle.write({
+        dir: path.join(tmpDir, '/dist'),
+        format: 'esm',
+        preserveModules: true,
+      });
+      await this.buildTracker.appendLog(buildId, 'Bundle written to dist');
 
-    await this.createDts({
-      tmpDir,
-      entry: this.getEntry(tmpDir, options),
-      options,
-    });
+      fs.copyFileSync(
+        path.join(tmpDir, '/lib/package.json'),
+        path.join(tmpDir, '/dist/package.json'),
+      );
 
-    await this.buildAndSavePreview({
-      tmpDir,
-      options,
-    });
+      await this.createDts({ tmpDir, entry: this.getEntry(tmpDir, options), options });
+      await this.buildTracker.appendLog(buildId, 'Type declarations generated');
 
-    await create(
-      {
-        gzip: true,
-        file: path.join(tmpDir, '/tar.tgz'),
-        portable: true,
-        strict: true,
-        cwd: path.join(tmpDir, '/dist'),
-      },
-      ['.'],
-    );
+      await this.buildAndSavePreview({ tmpDir, options });
+      await this.buildTracker.appendLog(buildId, 'Preview built and saved');
 
-    const tarStream = fs.createReadStream(path.join(tmpDir, '/tar.tgz'));
+      await create(
+        {
+          gzip: true,
+          file: path.join(tmpDir, '/tar.tgz'),
+          portable: true,
+          strict: true,
+          cwd: path.join(tmpDir, '/dist'),
+        },
+        ['.'],
+      );
+      await this.buildTracker.appendLog(buildId, 'Tarball created');
 
-    await this.minio.putObject(MINIO_COMPONENTS_BUCKET, options.id, tarStream);
+      const tarStream = fs.createReadStream(path.join(tmpDir, '/tar.tgz'));
+      await this.minio.putObject(MINIO_COMPONENTS_BUCKET, options.id, tarStream);
+      await this.buildTracker.appendLog(buildId, `Uploaded to MinIO: ${options.id}`);
 
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      await bundle.close();
+
+      await this.buildTracker.appendLog(buildId, 'Build completed successfully!', 'info');
+    } catch (error: any) {
+      const errorMessage = error.message || error.toString();
+      await this.buildTracker.appendLog(buildId, `Build failed: ${errorMessage}`, 'error');
+      this.logger.error(`Build ${options.username}/${options.name} failed`, error);
+      throw error;
+    } finally {
+      console.log = originalConsoleLog;
+      console.error = originalConsoleError;
+      console.warn = originalConsoleWarn;
+      console.debug = originalConsoleDebug;
+    }
   }
 
   private getBabelPlugin(options: BuildOptions) {
-    const babelPresets: string[] = ['@babel/preset-typescript'];
+    const presets: any[] = [
+      '@babel/preset-typescript',
+    ];
 
     if (options.framework === 'react') {
-      babelPresets.push('@babel/preset-react');
+      presets.push([
+        '@babel/preset-react',
+        {
+          runtime: 'automatic',
+        },
+      ]);
     } else if (options.framework === 'vue') {
-      babelPresets.push('babel-preset-vue');
+      presets.push('babel-preset-vue');
     }
 
     return babel({
       babelHelpers: 'bundled',
       extensions: this.getExtensions(options),
-      presets: babelPresets,
+      presets,
     });
   }
 
@@ -151,6 +198,17 @@ export class RollupBuildService {
       version: options.version,
       type: 'module',
       dependencies: options.dependencies,
+      peerDependencies:
+        options.framework === 'react'
+          ? {
+              react: '^18 || ^19',
+              'react-dom': '^18 || ^19',
+            }
+          : options.framework === 'vue'
+            ? {
+                vue: '^3',
+              }
+            : {},
     });
   }
 
@@ -163,6 +221,7 @@ export class RollupBuildService {
         moduleResolution: 'Node',
         esModuleInterop: true,
         skipLibCheck: true,
+        jsx: 'react-jsx',
       },
       include: ['src'],
     });

@@ -1,27 +1,52 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Component } from './component.entity';
 
-@Entity({ name: 'builds' })
-export class BuildEntity {
+export enum BuildStatus {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  SUCCESS = 'success',
+  FAILED = 'failed',
+}
 
+@Entity('builds')
+export class Build {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn({
-    type: 'timestamp',
-    default: () => 'CURRENT_TIMESTAMP(6)',
-  })
-  createdAt: Date;
+  @Column({ type: 'uuid' })
+  componentId: string;
 
-  @UpdateDateColumn({ type: 'timestamp', nullable: true })
-  updatedAt?: Date;
+  @ManyToOne(() => Component, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'componentId' })
+  component?: Component;
 
-  @ManyToOne(() => Component, (component) => component.builds)
-  component: Component;
+  @Column()
+  username: string;
 
-  @Column({ nullable: false})
-  success: boolean;
+  @Column()
+  name: string;
 
+  @Column()
+  version: string;
 
-  
+  @Column({ type: 'enum', enum: BuildStatus, default: BuildStatus.PENDING })
+  status: BuildStatus;
+
+  @Column({ type: 'text', nullable: true })
+  logs: string;
+
+  @Column({ nullable: true })
+  errorMessage?: string;
+
+  @CreateDateColumn()
+  startedAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @Column({ nullable: true })
+  finishedAt?: Date;
+
+  @Column({ default: 'component' })
+  type: string;
 }

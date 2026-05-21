@@ -58,9 +58,14 @@ export class PreviewController {
             "imports": {
               "react": "https://esm.sh/react@18",
               "react-dom": "https://esm.sh/react-dom@18",
-              "react-dom/client": "https://esm.sh/react-dom@18/client"
+              "react-dom/client": "https://esm.sh/react-dom@18/client",
+              "react/jsx-runtime": "https://esm.sh/react@18/jsx-runtime"
             }
           }
+          </script>
+          <script>
+            window.process = { env: { NODE_ENV: 'production' } };
+            window.global = window;
           </script>
         </head>
         <body>
@@ -70,7 +75,7 @@ export class PreviewController {
             body {
               display: flex;
               justify-content: center;
-              align-items: center;
+              padding: 20px;
             }
           </style>
           <script type="module">
@@ -91,6 +96,16 @@ export class PreviewController {
               createRoot(document.getElementById('root')).render(
                 React.createElement(Component)
               );
+              const reportHeight = () => {
+                const height = document.getElementById('root').getBoundingClientRect().height;
+                window.parent.postMessage({ type: 'resize', height }, '*');
+              };
+                requestAnimationFrame(() => {
+                reportHeight();
+                setTimeout(reportHeight, 100);
+              });
+              
+              new ResizeObserver(reportHeight).observe(document.getElementById('root'));
             } catch (e) {
               document.body.innerHTML = '<pre style="color:red">' + e.stack + '</pre>';
             }
