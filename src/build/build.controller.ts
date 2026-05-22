@@ -21,6 +21,11 @@ export class BuildController {
     };
   }
 
+  @Get('/:username/builds')
+  async getUserBuilds(@Param('username') username: string) {
+    return this.buildService.getBuildsByUsername(username);
+  }
+
   @Get('/:buildId')
   async getBuild(@Param('buildId') buildId: string) {
     return this.buildService.getBuild(buildId);
