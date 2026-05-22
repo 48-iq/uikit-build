@@ -13,21 +13,9 @@ export class Build {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
-  componentId: string;
-
-  @ManyToOne(() => Component, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => Component, (component) => component.builds)
   @JoinColumn({ name: 'componentId' })
   component?: Component;
-
-  @Column()
-  username: string;
-
-  @Column()
-  name: string;
-
-  @Column()
-  version: string;
 
   @Column({ type: 'enum', enum: BuildStatus, default: BuildStatus.PENDING })
   status: BuildStatus;
@@ -46,7 +34,4 @@ export class Build {
 
   @Column({ nullable: true })
   finishedAt?: Date;
-
-  @Column({ default: 'component' })
-  type: string;
 }

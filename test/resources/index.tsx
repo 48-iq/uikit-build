@@ -1,5 +1,7 @@
+// @ts-ignore
 import axios from "axios";
 export default function MyButton(props: {
+  // @ts-ignore
   children?: React.ReactNode,
   boolVal: boolean
 }) {  
@@ -7,5 +9,6 @@ export default function MyButton(props: {
   async function handleClick() {
     await axios.get(`localhost:3000/api/hello`).catch((err) => console.log(err));
   }
+  // @ts-ignore
   return <button onClick={handleClick}>Кнопка coca-cola</button>;
 };

@@ -7,6 +7,8 @@ import { PostgresModule } from './postgres/postgres.module';
 import { ComponentModule } from './components/component.module';
 import { SourceModule } from './source/source.module';
 import { PreviewModule } from './preview/preview.module';
+import { LoadModule } from './load/load.module';
+import { StatModule } from './stat/stat.module';
 
 @Module({
   imports: [
@@ -17,7 +19,9 @@ import { PreviewModule } from './preview/preview.module';
     PostgresModule,
     ComponentModule,
     SourceModule,
-    PreviewModule
+    PreviewModule,
+    LoadModule,
+    StatModule
   ],
   controllers: [],
   providers: [],

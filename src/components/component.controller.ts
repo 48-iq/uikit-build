@@ -21,7 +21,7 @@ import { FileExtensionType, FrameworkType } from 'src/build/types';
 import { Public } from 'src/security/public.decorator';
 import { RollupBuildService } from 'src/build/rollup-build.service';
 import { ComponentCreateDto } from 'src/components/dto/component-create.dto';
-import { BuildTrackerService } from 'src/build/build-tracker.service';
+import { BuildService } from 'src/build/build.service';
 import { BuildStatus } from 'src/postgres/entities/build.entity';
 
 @Controller('/api/components/main')
@@ -33,7 +33,7 @@ export class ComponentController {
     private readonly componentService: ComponentService,
     private readonly sourceService: SourceService,
     private readonly componentMapper: ComponentMapper,
-    private buildTracker: BuildTrackerService,
+    private buildTracker: BuildService,
   ) {}
 
   @Post('/upload')
@@ -88,7 +88,10 @@ export class ComponentController {
 
       return this.componentMapper.toEntityResultDto(component);
     } catch (error: any) {
-      this.logger.error(`Build failed for ${component.username}/${component.name}`, error);
+      this.logger.error(
+        `Build failed for ${component.username}/${component.name}`,
+        error,
+      );
 
       await this.buildTracker.finishBuild(
         build.id,
@@ -125,7 +128,6 @@ export class ComponentController {
     @Query('framework') framework?: string,
     @Query('sort') sort?: string,
   ) {
-    
     const result = await this.componentService.getManyByFilters({
       startDate: startDate === undefined ? new Date() : new Date(startDate),
       skip,
@@ -136,17 +138,7 @@ export class ComponentController {
     });
 
     return this.componentMapper.toCursorDto(result);
-    
   }
 
-  @Public()
-  @Get('/package/:username/:name')
-  async getPackage(
-    @Param('username') username: string,
-    @Param('name') name: string,
-  ) {
-   
-    return new StreamableFile(await this.componentService.getPackage(username, name));
-  }
-
+  
 }

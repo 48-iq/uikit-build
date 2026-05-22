@@ -7,16 +7,12 @@ export class BuildTrackerTable1777396668043 implements MigrationInterface {
           CREATE TABLE "builds" (
           "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
           "componentId" uuid NOT NULL,
-          "username" character varying NOT NULL,
-          "name" character varying NOT NULL,
-          "version" character varying NOT NULL,
           "status" character varying NOT NULL DEFAULT 'pending',
           "logs" text,
           "errorMessage" character varying,
-          "startedAt" TIMESTAMP NOT NULL DEFAULT now(),
-          "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "startedAt"  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+          "updatedAt"  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
           "finishedAt" TIMESTAMP,
-          "type" character varying NOT NULL DEFAULT 'component',
           CONSTRAINT "PK_builds" PRIMARY KEY ("id")
         )
       `)

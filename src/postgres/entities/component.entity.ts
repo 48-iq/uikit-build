@@ -2,10 +2,13 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryColumn,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Build } from './build.entity';
+import { Load } from './load.entity';
 
 @Entity({ name: 'components' })
 export class Component {
@@ -35,4 +38,10 @@ export class Component {
 
   @Column()
   version: string;
+
+  @OneToMany(() => Build, (build) => build.component)
+  builds: Build[];
+
+  @OneToMany(() => Load, (load) => load.component)
+  loads: Load[];
 }

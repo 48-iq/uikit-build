@@ -15,16 +15,25 @@ import { create } from 'tar';
 import * as fs from 'node:fs';
 import { InjectMinio } from 'src/minio/minio.decorator';
 import { BuildOptions, FileExtensionType } from './types';
-import { MINIO_COMPONENTS_BUCKET, MINIO_PREVIEW_BUCKET } from 'src/minio/constants';
-import { BuildTrackerService } from './build-tracker.service';
+import {
+  MINIO_COMPONENTS_BUCKET,
+  MINIO_PREVIEW_BUCKET,
+} from 'src/minio/constants';
+import { BuildService } from './build.service';
 
 @Injectable()
 export class RollupBuildService {
   private readonly logger = new Logger(RollupBuildService.name);
 
-  constructor(@InjectMinio() private readonly minio: Client, private buildTracker: BuildTrackerService,) {}
+  constructor(
+    @InjectMinio() private readonly minio: Client,
+    private buildTracker: BuildService,
+  ) {}
 
-  private async buildAndSavePreview(args: { tmpDir: string; options: BuildOptions }) {
+  private async buildAndSavePreview(args: {
+    tmpDir: string;
+    options: BuildOptions;
+  }) {
     const { tmpDir, options } = args;
 
     if (Object.keys(options.dependencies).length > 0) {
@@ -64,7 +73,11 @@ export class RollupBuildService {
     );
   }
 
-  async buildAndSave(args: { buffer: Buffer; options: BuildOptions; buildId: string }) {
+  async buildAndSave(args: {
+    buffer: Buffer;
+    options: BuildOptions;
+    buildId: string;
+  }) {
     const { buffer, options, buildId } = args;
 
     const originalConsoleLog = console.log;
@@ -73,13 +86,22 @@ export class RollupBuildService {
     const originalConsoleDebug = console.debug;
 
     try {
-      await this.buildTracker.appendLog(buildId, `Starting build: ${options.username}/${options.name}`);
+      await this.buildTracker.appendLog(
+        buildId,
+        `Starting build: ${options.username}/${options.name}`,
+      );
 
       const tmpDir = tmp.dirSync({ unsafeCleanup: true }).name;
 
-      const captureLog = (msg: any, level: 'info' | 'warn' | 'error' | 'debug' = 'info') => {
+      const captureLog = (
+        msg: any,
+        level: 'info' | 'warn' | 'error' | 'debug' = 'info',
+      ) => {
         try {
-          const message = typeof msg === 'string' ? msg : msg?.message || JSON.stringify(msg, null, 2);
+          const message =
+            typeof msg === 'string'
+              ? msg
+              : msg?.message || JSON.stringify(msg, null, 2);
           this.buildTracker.appendLog(buildId, message, level).catch((e) => {
             originalConsoleError('Failed to save log:', e);
           });
@@ -88,10 +110,22 @@ export class RollupBuildService {
         }
       };
 
-      console.log = (...args: any[]) => { originalConsoleLog(...args); captureLog(args.join(' '), 'info'); };
-      console.error = (...args: any[]) => { originalConsoleError(...args); captureLog(args.join(' '), 'error'); };
-      console.warn = (...args: any[]) => { originalConsoleWarn(...args); captureLog(args.join(' '), 'warn'); };
-      console.debug = (...args: any[]) => { originalConsoleDebug(...args); captureLog(args.join(' '), 'debug'); };
+      console.log = (...args: any[]) => {
+        originalConsoleLog(...args);
+        captureLog(args.join(' '), 'info');
+      };
+      console.error = (...args: any[]) => {
+        originalConsoleError(...args);
+        captureLog(args.join(' '), 'error');
+      };
+      console.warn = (...args: any[]) => {
+        originalConsoleWarn(...args);
+        captureLog(args.join(' '), 'warn');
+      };
+      console.debug = (...args: any[]) => {
+        originalConsoleDebug(...args);
+        captureLog(args.join(' '), 'debug');
+      };
 
       fs.mkdirSync(path.join(tmpDir, 'lib', 'src'), { recursive: true });
       fs.writeFileSync(
@@ -129,7 +163,11 @@ export class RollupBuildService {
         path.join(tmpDir, '/dist/package.json'),
       );
 
-      await this.createDts({ tmpDir, entry: this.getEntry(tmpDir, options), options });
+      await this.createDts({
+        tmpDir,
+        entry: this.getEntry(tmpDir, options),
+        options,
+      });
       await this.buildTracker.appendLog(buildId, 'Type declarations generated');
 
       await this.buildAndSavePreview({ tmpDir, options });
@@ -148,17 +186,35 @@ export class RollupBuildService {
       await this.buildTracker.appendLog(buildId, 'Tarball created');
 
       const tarStream = fs.createReadStream(path.join(tmpDir, '/tar.tgz'));
-      await this.minio.putObject(MINIO_COMPONENTS_BUCKET, options.id, tarStream);
-      await this.buildTracker.appendLog(buildId, `Uploaded to MinIO: ${options.id}`);
+      await this.minio.putObject(
+        MINIO_COMPONENTS_BUCKET,
+        options.id,
+        tarStream,
+      );
+      await this.buildTracker.appendLog(
+        buildId,
+        `Uploaded to MinIO: ${options.id}`,
+      );
 
       fs.rmSync(tmpDir, { recursive: true, force: true });
       await bundle.close();
 
-      await this.buildTracker.appendLog(buildId, 'Build completed successfully!', 'info');
+      await this.buildTracker.appendLog(
+        buildId,
+        'Build completed successfully!',
+        'info',
+      );
     } catch (error: any) {
       const errorMessage = error.message || error.toString();
-      await this.buildTracker.appendLog(buildId, `Build failed: ${errorMessage}`, 'error');
-      this.logger.error(`Build ${options.username}/${options.name} failed`, error);
+      await this.buildTracker.appendLog(
+        buildId,
+        `Build failed: ${errorMessage}`,
+        'error',
+      );
+      this.logger.error(
+        `Build ${options.username}/${options.name} failed`,
+        error,
+      );
       throw error;
     } finally {
       console.log = originalConsoleLog;
@@ -169,9 +225,7 @@ export class RollupBuildService {
   }
 
   private getBabelPlugin(options: BuildOptions) {
-    const presets: any[] = [
-      '@babel/preset-typescript',
-    ];
+    const presets: any[] = ['@babel/preset-typescript'];
 
     if (options.framework === 'react') {
       presets.push([

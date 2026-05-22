@@ -1,6 +1,9 @@
-import { BuildTrackerService } from "./build-tracker.service";
+import { BuildService } from './build.service';
 
-export const createLogPlugin = (buildId: string, buildTracker: BuildTrackerService) => ({
+export const createLogPlugin = (
+  buildId: string,
+  buildTracker: BuildService,
+) => ({
   name: 'log-plugin',
 
   buildStart() {

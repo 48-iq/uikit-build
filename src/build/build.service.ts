@@ -1,16 +1,21 @@
-import { Injectable } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Build, BuildStatus } from "src/postgres/entities/build.entity";
-import { Repository } from "typeorm";
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Build, BuildStatus } from 'src/postgres/entities/build.entity';
+import { Repository } from 'typeorm';
 
 @Injectable()
-export class BuildTrackerService {
+export class BuildService {
   constructor(
     @InjectRepository(Build)
     private buildRepo: Repository<Build>,
   ) {}
 
-  async createBuild(data: { username: string; name: string; version: string; componentId: string }) {
+  async createBuild(data: {
+    username: string;
+    name: string;
+    version: string;
+    componentId: string;
+  }) {
     const build = this.buildRepo.create({
       ...data,
       status: BuildStatus.RUNNING,
@@ -19,15 +24,19 @@ export class BuildTrackerService {
     return this.buildRepo.save(build);
   }
 
-  async appendLog(buildId: string, message: string, level: 'info' | 'warn' | 'error' | 'debug' = 'info') {
+  async appendLog(
+    buildId: string,
+    message: string,
+    level: 'info' | 'warn' | 'error' | 'debug' = 'info',
+  ) {
     const prefix = `[${new Date().toISOString()}] [${level.toUpperCase()}] `;
     const logLine = `${prefix}${message}\n`;
 
     await this.buildRepo
       .createQueryBuilder()
       .update(Build)
-      .set({ 
-        logs: () => `COALESCE(logs, '') || '${logLine.replace(/'/g, "''")}'` 
+      .set({
+        logs: () => `COALESCE(logs, '') || '${logLine.replace(/'/g, "''")}'`,
       })
       .where('id = :id', { id: buildId })
       .execute();
@@ -42,12 +51,17 @@ export class BuildTrackerService {
   }
 
   async getBuildsByComponent(componentId: string) {
-    return this.buildRepo.find({ where: { componentId }, order: { startedAt: 'DESC' } });
+    return this.buildRepo.find({
+      where: { component: { id: componentId } },
+      order: { startedAt: 'DESC' },
+    });
   }
 
   async getBuildsByUsername(username: string) {
     return this.buildRepo.find({
-      where: { username },
+      where: {
+        component: { username },
+      },
       order: { startedAt: 'DESC' },
       take: 50,
       relations: ['component'],

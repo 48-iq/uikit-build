@@ -10,7 +10,7 @@ export class ComponentsTable1774613288644 implements MigrationInterface {
         "description" character varying NOT NULL,
         "username" character varying NOT NULL,
         "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-        "updatedAt" TIMESTAMP,
+        "updatedAt"  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
         "version" character varying NOT NULL,
         "framework" character varying NOT NULL,
         CONSTRAINT "PK_component_id" PRIMARY KEY ("id")
