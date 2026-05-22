@@ -16,17 +16,9 @@ export class BuildTrackerTable1777396668043 implements MigrationInterface {
           CONSTRAINT "PK_builds" PRIMARY KEY ("id")
         )
       `)
-      await queryRunner.query(`CREATE INDEX "IDX_builds_componentId" ON "builds" ("componentId")`);
-      await queryRunner.query(`CREATE INDEX "IDX_builds_username" ON "builds" ("username")`);
-      await queryRunner.query(`CREATE INDEX "IDX_builds_status" ON "builds" ("status")`);
-      await queryRunner.query(`CREATE INDEX "IDX_builds_startedAt" ON "builds" ("startedAt")`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-      await queryRunner.query(`DROP INDEX "IDX_builds_startedAt"`);
-      await queryRunner.query(`DROP INDEX "IDX_builds_status"`);
-      await queryRunner.query(`DROP INDEX "IDX_builds_username"`);
-      await queryRunner.query(`DROP INDEX "IDX_builds_componentId"`);
       await queryRunner.query(`DROP TABLE "builds"`);
     }
 

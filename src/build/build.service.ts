@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Build, BuildStatus } from 'src/postgres/entities/build.entity';
+import { Component } from 'src/postgres/entities/component.entity';
 import { Repository } from 'typeorm';
 
 @Injectable()
@@ -8,20 +9,24 @@ export class BuildService {
   constructor(
     @InjectRepository(Build)
     private buildRepo: Repository<Build>,
+
+    @InjectRepository(Component)
+    private componentRepo: Repository<Component>,
   ) {}
 
   async createBuild(data: {
-    username: string;
-    name: string;
-    version: string;
     componentId: string;
   }) {
-    const build = this.buildRepo.create({
-      ...data,
-      status: BuildStatus.RUNNING,
-      logs: '',
-    });
-    return this.buildRepo.save(build);
+    const component = await this.componentRepo.findOneByOrFail({ id: data.componentId });
+
+    let build = new Build();
+    build.component = component;
+    build.logs = '';
+    build.status = BuildStatus.RUNNING;
+    
+    build = await this.buildRepo.save(build);
+
+    return build;
   }
 
   async appendLog(

@@ -1,7 +1,7 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Component } from "./component.entity";
 
-@Entity()
+@Entity({ name: 'loads' })
 export class Load {
 
   @PrimaryGeneratedColumn('uuid')

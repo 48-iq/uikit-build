@@ -25,25 +25,29 @@ export class UserStatService {
 
     const successBuilds = await this.buildRepository
       .createQueryBuilder('build')
-      .where('build.username = :username', { username })
+      .leftJoinAndSelect('build.component', 'component')
+      .where('component.username = :username', { username })
       .andWhere('build.status = :status', { status: BuildStatus.SUCCESS })
       .getCount();
 
     const failedBuilds = await this.buildRepository
       .createQueryBuilder('build')
-      .where('build.username = :username', { username })
+      .leftJoinAndSelect('build.component', 'component')
+      .where('component.username = :username', { username })
       .andWhere('build.status = :status', { status: BuildStatus.FAILED })
       .getCount();
 
     const pendingBuilds = await this.buildRepository
       .createQueryBuilder('build')
-      .where('build.username = :username', { username })
+      .leftJoinAndSelect('build.component', 'component')
+      .where('component.username = :username', { username })
       .andWhere('build.status = :status', { status: BuildStatus.PENDING })
       .getCount();
 
     const runningBuilds = await this.buildRepository
       .createQueryBuilder('build')
-      .where('build.username = :username', { username })
+      .leftJoinAndSelect('build.component', 'component')
+      .where('component.username = :username', { username })
       .andWhere('build.status = :status', { status: BuildStatus.RUNNING })
       .getCount();
 

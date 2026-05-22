@@ -4,9 +4,10 @@ import { BuildService } from './build.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Build } from 'src/postgres/entities/build.entity';
 import { BuildController } from './build.controller';
+import { Component } from 'src/postgres/entities/component.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Build])],
+  imports: [TypeOrmModule.forFeature([Build, Component])],
   providers: [RollupBuildService, BuildService],
   exports: [RollupBuildService, BuildService],
   controllers: [BuildController],

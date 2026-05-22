@@ -62,9 +62,6 @@ export class ComponentController {
     await this.sourceService.save(file.buffer, component.id);
 
     const build = await this.buildTracker.createBuild({
-      username,
-      name: component.name,
-      version: component.version,
       componentId: component.id,
     });
 
