@@ -7,6 +7,11 @@ export class BuildController {
 
   constructor(private buildService: BuildService) {}
 
+  @Get('/:username/builds')
+  async getUserBuilds(@Param('username') username: string) {
+    return this.buildService.getBuildsByUsername(username);
+  }
+
   @Get('/:buildId/logs')
   async getBuildLogs(@Param('buildId') buildId: string) {
     const build = await this.buildService.getBuild(buildId);
@@ -17,13 +22,7 @@ export class BuildController {
       startedAt: build.startedAt,
       finishedAt: build.finishedAt,
       errorMessage: build.errorMessage,
-      
     };
-  }
-
-  @Get('/:username/builds')
-  async getUserBuilds(@Param('username') username: string) {
-    return this.buildService.getBuildsByUsername(username);
   }
 
   @Get('/:buildId')
