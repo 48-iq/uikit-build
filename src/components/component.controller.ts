@@ -10,94 +10,55 @@ import {
   Res,
   StreamableFile,
   UploadedFile,
+  UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { ComponentService } from 'src/components/component.service';
-import { SourceService } from 'src/source/source.service';
 import { ComponentMapper } from './component.mapper';
-import { FileExtensionType, FrameworkType } from 'src/build/types';
 import { Public } from 'src/security/public.decorator';
 import { RollupBuildService } from 'src/build/rollup-build.service';
 import { ComponentCreateDto } from 'src/components/dto/component-create.dto';
 import { BuildService } from 'src/build/build.service';
-import { BuildStatus } from 'src/postgres/entities/build.entity';
 
 @Controller('/api/components/main')
 export class ComponentController {
   private readonly logger = new Logger(ComponentController.name);
 
   constructor(
-    private readonly buildService: RollupBuildService,
+    private readonly rollupBuildService: RollupBuildService,
     private readonly componentService: ComponentService,
     private readonly sourceService: SourceService,
     private readonly componentMapper: ComponentMapper,
-    private buildTracker: BuildService,
+    private buildService: BuildService,
   ) {}
 
   @Post('/upload')
   @UseInterceptors(FileInterceptor('file'))
   async upload(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: ComponentCreateDto,
+    @UploadedFiles() file: Express.Multer.File,
+    @Body() dto: ComponentCreateDto,
     @Req() req: Request,
   ) {
-    this.logger.log(JSON.stringify(req['authPayload']));
     const username = req['authPayload']['username'];
+    
+    
+    const component = await this.componentService.create({ username, dto }); // +
 
-    const framework = body.framework as FrameworkType;
-    const fileExtension = body.fileExtension as FileExtensionType;
-    const css = JSON.parse(body.css);
-    const dependencies = JSON.parse(body.dependencies);
+    return this.componentMapper.toEntityResultDto(component);
+  }
 
-    const component = await this.componentService.save({
-      username,
-      name: body.name,
-      version: body.version,
-      description: body.description,
-      framework,
-    });
+  @Post('/:componentId/version')
+  @UseInterceptors(FileInterceptor('file'))
+  async version(
+    @UploadedFiles() file: Express.Multer.File,
+    @Param('componentId') componentId: string,
+    @Req() req: Request,
+  ) {
+    const username = req['authPayload']['username'];
+    
 
-    await this.sourceService.save(file.buffer, component.id);
-
-    const build = await this.buildTracker.createBuild({
-      componentId: component.id,
-    });
-
-    try {
-      await this.buildService.buildAndSave({
-        buffer: file.buffer,
-        options: {
-          id: component.id,
-          version: body.version,
-          name: body.name,
-          framework,
-          fileExtension,
-          css,
-          username,
-          dependencies,
-        },
-        buildId: build.id,
-      });
-
-      await this.buildTracker.finishBuild(build.id, BuildStatus.SUCCESS);
-
-      return this.componentMapper.toEntityResultDto(component);
-    } catch (error: any) {
-      this.logger.error(
-        `Build failed for ${component.username}/${component.name}`,
-        error,
-      );
-
-      await this.buildTracker.finishBuild(
-        build.id,
-        BuildStatus.FAILED,
-        error.message || 'Unknown error',
-      );
-
-      throw error;
-    }
   }
 
   @Public()
@@ -123,6 +84,8 @@ export class ComponentController {
     @Query('limit') limit?: number,
     @Query('query') query?: string,
     @Query('framework') framework?: string,
+    @Query('username') username?: string,
+    @Query('name') name?: string,
     @Query('sort') sort?: string,
   ) {
     const result = await this.componentService.getManyByFilters({
@@ -131,11 +94,11 @@ export class ComponentController {
       limit: limit === undefined ? 20 : limit,
       query,
       framework,
+      username,
+      name,
       sort: sort === undefined ? 'desc' : sort === 'asc' ? 'asc' : 'desc',
     });
 
     return this.componentMapper.toCursorDto(result);
   }
-
-  
 }

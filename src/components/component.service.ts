@@ -5,41 +5,59 @@ import { MINIO_COMPONENTS_BUCKET } from 'src/minio/constants';
 import { InjectMinio } from 'src/minio/minio.decorator';
 import { Component } from 'src/postgres/entities/component.entity';
 import { Repository } from 'typeorm';
+import { ComponentCreateDto } from './dto/component-create.dto';
+import { Source } from 'src/postgres/entities/source.entity';
+import { AppError } from 'src/errors/app-error';
+import { ERROR_CODES } from 'src/errors/error-codes';
 
 @Injectable()
 export class ComponentService {
   constructor(
     @InjectRepository(Component)
     private readonly componentRepository: Repository<Component>,
-    @InjectMinio() private readonly minio: MinioClient,
+    @InjectMinio()
+    private readonly minio: MinioClient,
+    
   ) {}
 
-  async save(args: {
+  async getById(id: string) {
+    const component = await this.componentRepository.findOneBy({ id });
+    if (!component) throw new AppError(ERROR_CODES.COMPONENT_NOT_FOUND);
+    return component;
+  }
+
+  async create(args: {
     username: string;
-    name: string;
-    version: string;
-    description: string;
-    framework: string;
+    dto: ComponentCreateDto;
   }) {
-    const { username, name, version, description, framework } = args;
+    const lastVersionComponent = await this.componentRepository
+      .createQueryBuilder('component')
+      .where('component.username = :username', { username: args.username })
+      .andWhere('component.name = :name', { username: args.dto.name })
+      .orderBy('component.version', 'DESC')
+      .limit(1)
+      .getOne();
 
     let component = new Component();
-
-    component.framework = framework;
-
-    component.description = description;
-
-    component.name = name;
-
-    component.username = username;
-
-    component.createdAt = new Date();
-
+    component.framework = args.dto.framework;
+    component.description = args.dto.description;
+    component.name = args.dto.name;
+    component.username = args.username;
+    component.source = args.source;
     component.version = version;
 
-    component = await this.componentRepository.save(component);
+    await this.componentRepository.save(component);
 
     return component;
+  }
+
+  async updateComponent(args: {
+    username: string;
+    name: string;
+    file: Express.Multer.File;
+    dependencies: Record<string, string>;
+  }) {
+    const { username, name, file, dependencies } = args;
   }
 
   async getManyByFilters(args: {
@@ -50,8 +68,9 @@ export class ComponentService {
     query?: string;
     framework?: string;
     sort?: string;
+    name?: string;
   }) {
-    const { username, startDate, skip, limit, query, framework } = args;
+    const { username, startDate, skip, limit, query, framework, name } = args;
 
     let qb = this.componentRepository
       .createQueryBuilder('component')
@@ -68,13 +87,15 @@ export class ComponentService {
         `component.username || '/' || component.name || '/' || component.version LIKE :query`,
         { query: `%${query}%` },
       );
- 
+
     if (framework)
       qb = qb.andWhere('component.framework = :framework', { framework });
 
+    if (name) qb = qb.andWhere('component.name = :name', { name });
+
     if (!args.sort || args.sort === 'desk') {
       qb = qb.orderBy('component.createdAt', 'DESC');
-    } else if (args.sort === 'asc'){
+    } else if (args.sort === 'asc') {
       qb = qb.orderBy('component.createdAt', 'ASC');
     }
 
@@ -82,7 +103,7 @@ export class ComponentService {
 
     if (limit) qb = qb.limit(limit);
 
-    const total = await this.componentRepository.count();  
+    const total = await this.componentRepository.count();
     const count = await qb.getCount();
     const itemsLeft = total - (skip ?? 0) - count;
 
@@ -93,12 +114,7 @@ export class ComponentService {
       itemsLeft,
       startDate,
       itemsSkipped: skip ?? 0,
-    }  
-  }
-
-  async getByUsernameAndName(args: { name: string; username: string }) {
-    const { name, username } = args;
-    return await this.componentRepository.findOneByOrFail({ name, username });
+    };
   }
 
   async getPackage(username: string, name: string) {

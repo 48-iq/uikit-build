@@ -3,12 +3,13 @@ import {
   CreateDateColumn,
   Entity,
   OneToMany,
-  PrimaryColumn,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Build } from './build.entity';
 import { Load } from './load.entity';
+import { ComponentTag } from './component-tag.enum';
 
 @Entity({ name: 'components' })
 export class Component {
@@ -27,6 +28,15 @@ export class Component {
   @Column()
   name: string;
 
+  @Column({
+    type: 'enum',
+    enum: ComponentTag,
+    array: true,
+    nullable: true,
+    default: [],
+  })
+  tags: ComponentTag[];
+
   @Column()
   framework: string;
 
@@ -36,8 +46,8 @@ export class Component {
   @Column()
   username: string;
 
-  @Column()
-  version: string;
+  @Column({ nullable: true })
+  tag: string;
 
   @OneToMany(() => Build, (build) => build.component)
   builds: Build[];

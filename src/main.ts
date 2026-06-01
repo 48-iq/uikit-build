@@ -13,8 +13,6 @@ async function bootstrap() {
 
   const origin = configService.getOrThrow<string>('CORS_ORIGIN');
 
-  app.useGlobalPipes(new ValidationPipe());
-
   app.enableCors({
     origin: origin,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',

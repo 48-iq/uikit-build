@@ -1,9 +1,14 @@
+import { FrameworkType } from "src/build/types";
+
 export class ComponentCreateDto {
+  
   name: string;
-  framework: string;
+
+  framework: FrameworkType;
+
   description: string;
-  fileExtension: string;
-  css: string;
+
   dependencies: string;
-  version: string;
+
+  tags: string[];
 }

@@ -1,28 +1,22 @@
-import { Controller, Get, Logger, Param } from '@nestjs/common';
+import { Controller, Get, Logger, Param, Post, Query } from '@nestjs/common';
 import { BuildService } from 'src/build/build.service';
+import { BuildFiltersDto } from './dto/build-filters.dto';
 
-@Controller('/api/components/builds') // TODO нормально сделать роутинг, сейчас костыль для тестов
+@Controller('/api/components/builds') 
 export class BuildController {
   private readonly logger = new Logger(BuildController.name);
 
   constructor(private buildService: BuildService) {}
 
-  @Get('/:buildId/logs')
-  async getBuildLogs(@Param('buildId') buildId: string) {
-    const build = await this.buildService.getBuild(buildId);
-    return {
-      buildId: build.id,
-      status: build.status,
-      logs: build.logs || '',
-      startedAt: build.startedAt,
-      finishedAt: build.finishedAt,
-      errorMessage: build.errorMessage,
-      
-    };
-  }
-
   @Get('/:buildId')
   async getBuild(@Param('buildId') buildId: string) {
     return this.buildService.getBuild(buildId);
+  }
+
+  @Get()
+  async getBuildsByFilter(
+    @Query() buildFiltersDto: BuildFiltersDto
+  ) {
+    return this.buildService.getBuildsByFilters(buildFiltersDto);
   }
 }
