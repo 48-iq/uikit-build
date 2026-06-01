@@ -98,6 +98,8 @@ export class ComponentService {
     } else if (args.sort === 'asc') {
       qb = qb.orderBy('component.createdAt', 'ASC');
     }
+  
+    const total = await qb.getCount(); 
 
     if (skip) qb = qb.offset(skip);
 
@@ -108,7 +110,7 @@ export class ComponentService {
     const itemsLeft = total - (skip ?? 0) - count;
 
     const components = await qb.getMany();
-
+    const itemsLeft = Math.max(0, total - (skip ?? 0) - components.length);
     return {
       components,
       itemsLeft,
