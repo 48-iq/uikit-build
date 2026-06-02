@@ -5,5 +5,5 @@ export class BuildFiltersDto {
   username?: string;
   limit?: number;
   skip?: number;
-  startDate?: Date;
+  startDate?: string;
 }

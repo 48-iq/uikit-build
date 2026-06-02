@@ -12,10 +12,9 @@ import babel from '@rollup/plugin-babel';
 import * as fs from 'node:fs';
 import { execSync } from 'child_process';
 import { InjectMinio } from 'src/minio/minio.decorator';
-import { FrameworkType } from './types';
 import { MINIO_PREVIEW_BUCKET } from 'src/minio/constants';
 import { BuildLogService } from './build-log.service';
-import { Component } from 'src/postgres/entities/component.entity';
+import { Component, Framework } from 'src/postgres/entities/component.entity';
 import { Build } from 'src/postgres/entities/build.entity';
 
 @Injectable()
@@ -36,7 +35,7 @@ export class PreviewBuildService {
     const { build, component, file, dependencies } = args;
     const buildId = build.id;
     const ext = file.originalname.split('.').pop()!;
-    const framework = component.framework as FrameworkType;
+    const framework = component.framework as Framework;
 
     type Level = 'info' | 'warn' | 'error' | 'debug';
     const log = (msg: string, level: Level) =>

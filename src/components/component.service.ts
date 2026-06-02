@@ -1,14 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Client as MinioClient } from 'minio';
-import { MINIO_COMPONENTS_BUCKET } from 'src/minio/constants';
 import { InjectMinio } from 'src/minio/minio.decorator';
 import { Component } from 'src/postgres/entities/component.entity';
 import { Repository } from 'typeorm';
 import { ComponentCreateDto } from './dto/component-create.dto';
-import { Source } from 'src/postgres/entities/source.entity';
-import { AppError } from 'src/errors/app-error';
-import { ERROR_CODES } from 'src/errors/error-codes';
+import { AppError } from 'src/errors/app.error';
+import { ERROR_CODE } from 'src/errors/error-code';
+import { ComponentFiltersDto } from './dto/component-filters.dto';
+import { ComponentMapper } from './component.mapper';
+import { BuildService } from 'src/build/services/build.service';
 
 @Injectable()
 export class ComponentService {
@@ -17,61 +18,77 @@ export class ComponentService {
     private readonly componentRepository: Repository<Component>,
     @InjectMinio()
     private readonly minio: MinioClient,
-    
+
+    private readonly buildService: BuildService,
   ) {}
 
   async getById(id: string) {
     const component = await this.componentRepository.findOneBy({ id });
-    if (!component) throw new AppError(ERROR_CODES.COMPONENT_NOT_FOUND);
-    return component;
+    if (!component) throw new AppError(ERROR_CODE.COMPONENT_NOT_FOUND);
+    return ComponentMapper.toEntityDto(component);
+  }
+
+  async getByNameAndUsername(args: { name: string; username: string }) {
+    const component = await this.componentRepository.findOneBy({
+      name: args.name,
+      username: args.username,
+    });
+
+    if (!component) throw new AppError(ERROR_CODE.COMPONENT_NOT_FOUND);
+
+    return ComponentMapper.toEntityDto(component);
   }
 
   async create(args: {
     username: string;
     dto: ComponentCreateDto;
+    file: Express.Multer.File;
   }) {
-    const lastVersionComponent = await this.componentRepository
-      .createQueryBuilder('component')
-      .where('component.username = :username', { username: args.username })
-      .andWhere('component.name = :name', { username: args.dto.name })
-      .orderBy('component.version', 'DESC')
-      .limit(1)
-      .getOne();
+    if (await this.componentRepository.existsBy({ name: args.dto.name, username: args.username })) {
+      throw new AppError(ERROR_CODE.COMPONENT_ALREADY_EXISTS);
+    }
+    const component = await this.componentRepository.save({
+      name: args.dto.name,
+      username: args.username,
+      framework: args.dto.framework,
+      description: args.dto.description,
+      tags: args.dto.tags,
+    });
 
-    let component = new Component();
-    component.framework = args.dto.framework;
-    component.description = args.dto.description;
-    component.name = args.dto.name;
-    component.username = args.username;
-    component.source = args.source;
-    component.version = version;
+    const build = await this.buildService.create({
+      component,
+      file: args.file,
+      dependencies: args.dto.dependencies,
+    });
 
-    await this.componentRepository.save(component);
-
-    return component;
+    return ComponentMapper.toEntityCreateResultDto(component, build);
   }
 
-  async updateComponent(args: {
+  async postNewVersion(args: {
     username: string;
     name: string;
     file: Express.Multer.File;
     dependencies: Record<string, string>;
   }) {
     const { username, name, file, dependencies } = args;
+    const component = await this.componentRepository.findOneBy({
+      name,
+      username,
+    });
+    if (!component) throw new AppError(ERROR_CODE.COMPONENT_NOT_FOUND);
+    const build = await this.buildService.create({
+      component,
+      file,
+      dependencies,
+    });
+    return ComponentMapper.toEntityCreateResultDto(component, build);
   }
 
-  async getManyByFilters(args: {
-    username?: string;
-    startDate: Date;
-    skip?: number;
-    limit?: number;
-    query?: string;
-    framework?: string;
-    sort?: string;
-    name?: string;
-  }) {
-    const { username, startDate, skip, limit, query, framework, name } = args;
-
+  async getManyByFilters(filters: ComponentFiltersDto) {
+    const { username, skip, limit, query, framework } = filters;
+    const startDate = filters.startDate
+      ? new Date(filters.startDate)
+      : new Date();
     let qb = this.componentRepository
       .createQueryBuilder('component')
       .where('1 = 1');
@@ -79,8 +96,7 @@ export class ComponentService {
     if (username)
       qb = qb.andWhere('component.username = :username', { username });
 
-    if (startDate)
-      qb = qb.andWhere('component.createdAt < :startDate', { startDate });
+    qb = qb.andWhere('component.createdAt < :startDate', { startDate });
 
     if (query)
       qb = qb.andWhere(
@@ -91,15 +107,9 @@ export class ComponentService {
     if (framework)
       qb = qb.andWhere('component.framework = :framework', { framework });
 
-    if (name) qb = qb.andWhere('component.name = :name', { name });
-
-    if (!args.sort || args.sort === 'desk') {
-      qb = qb.orderBy('component.createdAt', 'DESC');
-    } else if (args.sort === 'asc') {
-      qb = qb.orderBy('component.createdAt', 'ASC');
+    if (filters.tags) {
+      qb = qb.andWhere('component.tags @> :tags', { tags: filters.tags });
     }
-  
-    const total = await qb.getCount(); 
 
     if (skip) qb = qb.offset(skip);
 
@@ -110,33 +120,11 @@ export class ComponentService {
     const itemsLeft = total - (skip ?? 0) - count;
 
     const components = await qb.getMany();
-    const itemsLeft = Math.max(0, total - (skip ?? 0) - components.length);
-    return {
+    return ComponentMapper.toCursorResultDto({
       components,
       itemsLeft,
       startDate,
       itemsSkipped: skip ?? 0,
-    };
-  }
-
-  async getPackage(username: string, name: string) {
-    const component = await this.componentRepository.findOneByOrFail({
-      username,
-      name,
     });
-
-    if (!component) {
-      throw new Error('Component not found');
-    }
-    return await this.minio.getObject(MINIO_COMPONENTS_BUCKET, component.id);
-  }
-
-  async load(components: string[]) {
-    const result = await this.componentRepository
-      .createQueryBuilder('component')
-      .where('component.id IN (:ids)', { ids: components })
-      .getMany();
-
-    return result;
   }
 }

@@ -1,10 +1,9 @@
-import { ErrorCode } from "./error-codes";
+import { ErrorCode } from './error-code';
 
 export class AppError extends Error {
+  readonly code: string;
 
-  private readonly code: string;
-
-  private readonly statusCode: number;
+  readonly statusCode: number;
 
   constructor(code: ErrorCode, cause?: string) {
     super(code.message);
@@ -12,5 +11,4 @@ export class AppError extends Error {
     this.statusCode = code.statusCode;
     this.cause = cause;
   }
-  
 }

@@ -1,20 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { ComponentEntityDto } from 'src/components/dto/component-entity.dto';
 import { Component } from 'src/postgres/entities/component.entity';
-import { ComponentCursorDto } from './dto/component-cursor.dto';
 import { ComponentCursorResultDto } from './dto/component-cursor-result.dto';
 import { ComponentResultDto } from './dto/component-result.dto';
+import { ComponentCreateResultDto } from './dto/component-create-result.dto';
+import { Build } from 'src/postgres/entities/build.entity';
+import { BuildMapper } from 'src/build/mappers/build.mapper';
 
 @Injectable()
 export class ComponentMapper {
-  toEntityDto(component: Component) {
+  static toEntityDto(component: Component) {
     const entityDto = new ComponentEntityDto();
 
     entityDto.id = component.id;
     entityDto.name = component.name;
     entityDto.framework = component.framework;
     entityDto.description = component.description;
-    entityDto.version = component.version;
     entityDto.username = component.username;
     entityDto.createdAt = component.createdAt.toISOString();
     entityDto.updatedAt = component.updatedAt?.toISOString() ?? 'none';
@@ -22,7 +23,21 @@ export class ComponentMapper {
     return entityDto;
   }
 
-  toEntityResultDto(component: Component) {
+  static toEntityCreateResultDto(component: Component, build: Build) {
+    const componentResultDto = this.toEntityDto(component);
+
+    const componentCreateResultDto = new ComponentCreateResultDto();
+
+    componentCreateResultDto.result = {
+      component: componentResultDto,
+      build: BuildMapper.toEntityDto(build),
+    }
+    componentCreateResultDto.success = true;
+
+    return componentCreateResultDto;
+  }
+
+  static toEntityResultDto(component: Component) {
     const entityDto = this.toEntityDto(component);
 
     const componentResultDto = new ComponentResultDto();
@@ -33,39 +48,25 @@ export class ComponentMapper {
     return componentResultDto;
   }
 
-  toEntityDtos(components: Component[]) {
+  static toEntityDtos(components: Component[]) {
     return components.map((component) => this.toEntityDto(component));
   }
 
-  toCursorDto(args: {
+  static toCursorResultDto(args: {
     components: Component[];
     itemsLeft: number;
     startDate: Date;
     itemsSkipped: number;
   }) {
-    const { components, itemsLeft, startDate, itemsSkipped } = args;
-
-    const cursorDto = new ComponentCursorDto();
-
-    cursorDto.data = this.toEntityDtos(components);
-    cursorDto.itemsLeft = itemsLeft;
-    cursorDto.startDate = startDate.toISOString();
-    cursorDto.itemsSkipped = itemsSkipped;
-
-    return cursorDto;
-  }
-
-  toCursorResultDto(args: {
-    components: Component[];
-    itemsLeft: number;
-    startDate: Date;
-    itemsSkipped: number;
-  }) {
-    const cursorDto = this.toCursorDto(args);
 
     const cursorResultDto = new ComponentCursorResultDto();
 
-    cursorResultDto.result = cursorDto;
+    cursorResultDto.result = {
+      itemsLeft: args.itemsLeft,
+      data: args.components.map((component) => this.toEntityDto(component)),
+      startDate: args.startDate.toISOString()||'none',
+      itemsSkipped: args.itemsSkipped,
+    };
     cursorResultDto.success = true;
 
     return cursorResultDto;

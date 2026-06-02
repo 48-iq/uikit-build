@@ -13,10 +13,9 @@ import { dts } from 'rollup-plugin-dts';
 import { create } from 'tar';
 import * as fs from 'node:fs';
 import { InjectMinio } from 'src/minio/minio.decorator';
-import { FrameworkType } from './types';
 import { MINIO_COMPONENTS_BUCKET } from 'src/minio/constants';
 import { BuildLogService } from './build-log.service';
-import { Component } from 'src/postgres/entities/component.entity';
+import { Component, Framework } from 'src/postgres/entities/component.entity';
 import { Build } from 'src/postgres/entities/build.entity';
 
 @Injectable()
@@ -37,7 +36,7 @@ export class RollupBuildService {
     const { build, component, file, dependencies } = args;
     const buildId = build.id;
     const ext = file.originalname.split('.').pop()!;
-    const framework = component.framework as FrameworkType;
+    const framework = component.framework;
 
     type Level = 'info' | 'warn' | 'error' | 'debug';
     const log = (msg: string, level: Level) =>
@@ -161,7 +160,7 @@ export class RollupBuildService {
   }
 
   private external(
-    framework: FrameworkType,
+    framework: Framework,
     dependencies: Record<string, string>,
   ): string[] {
     const base =
@@ -173,7 +172,7 @@ export class RollupBuildService {
     return [...base, ...Object.keys(dependencies)];
   }
 
-  private extensions(framework: FrameworkType): string[] {
+  private extensions(framework: Framework): string[] {
     const base = ['.js', '.jsx', '.ts', '.tsx'];
     return framework === 'vue' ? [...base, '.vue'] : base;
   }
@@ -182,7 +181,7 @@ export class RollupBuildService {
     component: Component,
     dependencies: Record<string, string>,
   ): string {
-    const framework = component.framework as FrameworkType;
+    const framework = component.framework;
     return JSON.stringify({
       name: component.name,
       private: true,
@@ -197,7 +196,7 @@ export class RollupBuildService {
     });
   }
 
-  private tsconfigJson(framework: FrameworkType): string {
+  private tsconfigJson(framework: Framework): string {
     return JSON.stringify({
       compilerOptions: {
         target: 'ES2023',

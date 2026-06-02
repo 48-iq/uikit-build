@@ -8,8 +8,6 @@ import {
   Query,
   Req,
   Res,
-  StreamableFile,
-  UploadedFile,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
@@ -18,20 +16,20 @@ import type { Request, Response } from 'express';
 import { ComponentService } from 'src/components/component.service';
 import { ComponentMapper } from './component.mapper';
 import { Public } from 'src/security/public.decorator';
-import { RollupBuildService } from 'src/build/rollup-build.service';
+import { RollupBuildService } from 'src/build/services/rollup-build.service';
 import { ComponentCreateDto } from 'src/components/dto/component-create.dto';
-import { BuildService } from 'src/build/build.service';
+import { BuildService } from 'src/build/services/build.service';
+import { ComponentFiltersDto } from './dto/component-filters.dto';
+import { AppError } from 'src/errors/app.error';
+import { ERROR_CODE } from 'src/errors/error-code';
+import { ComponentNewVersionDto } from './dto/component-new-version.dto';
 
 @Controller('/api/components/main')
 export class ComponentController {
   private readonly logger = new Logger(ComponentController.name);
 
   constructor(
-    private readonly rollupBuildService: RollupBuildService,
     private readonly componentService: ComponentService,
-    private readonly sourceService: SourceService,
-    private readonly componentMapper: ComponentMapper,
-    private buildService: BuildService,
   ) {}
 
   @Post('/upload')
@@ -42,23 +40,28 @@ export class ComponentController {
     @Req() req: Request,
   ) {
     const username = req['authPayload']['username'];
-    
-    
-    const component = await this.componentService.create({ username, dto }); // +
 
-    return this.componentMapper.toEntityResultDto(component);
+    return await this.componentService.create({ username, dto, file });
   }
 
-  @Post('/:componentId/version')
+  @Post('/:username/:name/version')
   @UseInterceptors(FileInterceptor('file'))
-  async version(
+  async newVersion(
     @UploadedFiles() file: Express.Multer.File,
-    @Param('componentId') componentId: string,
+    @Param('username') username: string,
+    @Param('name') name: string,
+    @Body() dto: ComponentNewVersionDto,
     @Req() req: Request,
   ) {
-    const username = req['authPayload']['username'];
-    
+    const authUsername = req['authPayload']['username'];
+    if (authUsername !== username) throw new AppError(ERROR_CODE.FORBIDDEN);
 
+    return await this.componentService.postNewVersion({
+      username,
+      dependencies: dto.dependencies,
+      name,
+      file,
+    });
   }
 
   @Public()
@@ -68,37 +71,15 @@ export class ComponentController {
     @Param('name') name: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const component = await this.componentService.getByUsernameAndName({
+    return await this.componentService.getByNameAndUsername({
       name,
       username,
     });
-
-    return this.componentMapper.toEntityDto(component);
   }
 
   @Public()
   @Get()
-  async getMany(
-    @Query('startDate') startDate?: string,
-    @Query('skip') skip?: number,
-    @Query('limit') limit?: number,
-    @Query('query') query?: string,
-    @Query('framework') framework?: string,
-    @Query('username') username?: string,
-    @Query('name') name?: string,
-    @Query('sort') sort?: string,
-  ) {
-    const result = await this.componentService.getManyByFilters({
-      startDate: startDate === undefined ? new Date() : new Date(startDate),
-      skip,
-      limit: limit === undefined ? 20 : limit,
-      query,
-      framework,
-      username,
-      name,
-      sort: sort === undefined ? 'desc' : sort === 'asc' ? 'asc' : 'desc',
-    });
-
-    return this.componentMapper.toCursorDto(result);
+  async getMany(@Query() componentFiltersDto: ComponentFiltersDto) {
+    return await this.componentService.getManyByFilters(componentFiltersDto);
   }
 }

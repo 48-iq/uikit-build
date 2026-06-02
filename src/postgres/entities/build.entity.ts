@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Component } from './component.entity';
+import { Load } from './load.entity';
 
 export enum BuildStatus {
   PENDING = 'pending',
@@ -43,5 +44,8 @@ export class Build {
 
   @Column({ type: 'text', nullable: true })
   sourceFilename: string;
+
+  @OneToMany(() => Load, (load) => load.build)
+  loads: Load[]
   
 }

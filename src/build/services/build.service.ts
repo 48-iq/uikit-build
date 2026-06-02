@@ -6,10 +6,17 @@ import { Repository } from 'typeorm';
 import { RollupBuildService } from './rollup-build.service';
 import { PreviewBuildService } from './preview-build.service';
 import { BuildLogService } from './build-log.service';
-import { BuildFiltersDto } from './dto/build-filters.dto';
+import { BuildFiltersDto } from '../dto/build-filters.dto';
 import { InjectMinio } from 'src/minio/minio.decorator';
 import { Client } from 'minio';
-import { MINIO_SOURCE_BUCKET } from 'src/minio/constants';
+import {
+  MINIO_COMPONENTS_BUCKET as MINIO_PACKAGE_BUCKET,
+  MINIO_SOURCE_BUCKET,
+} from 'src/minio/constants';
+import { BuildMapper } from '../mappers/build.mapper';
+import { AppError } from 'src/errors/app.error';
+import { ERROR_CODE } from 'src/errors/error-code';
+import { Load } from 'src/postgres/entities/load.entity';
 
 @Injectable()
 export class BuildService {
@@ -18,13 +25,15 @@ export class BuildService {
   constructor(
     @InjectRepository(Build)
     private readonly buildRepository: Repository<Build>,
+    @InjectRepository(Load)
+    private readonly loadRepository: Repository<Load>,
     private readonly rollupBuildService: RollupBuildService,
     private readonly previewBuildService: PreviewBuildService,
     private readonly buildLog: BuildLogService,
     @InjectMinio() private readonly minio: Client,
   ) {}
 
-  async build(args: {
+  async create(args: {
     component: Component;
     file: Express.Multer.File;
     dependencies: Record<string, string>;
@@ -33,8 +42,6 @@ export class BuildService {
       where: { component: args.component },
       order: { version: 'DESC' },
     });
-
-
 
     let build = await this.buildRepository.save({
       component: args.component,
@@ -110,7 +117,7 @@ export class BuildService {
     }
   }
 
-  async getBuild(buildId: string) {
+  async getById(buildId: string) {
     const build = await this.buildRepository.findOne({
       where: { id: buildId },
       relations: ['component'],
@@ -120,7 +127,7 @@ export class BuildService {
     return build;
   }
 
-  async getBuildsByFilters(buildFiltersDto: BuildFiltersDto) {
+  async getByFilters(buildFiltersDto: BuildFiltersDto) {
     let qb = this.buildRepository
       .createQueryBuilder('build')
       .leftJoinAndSelect('build.component', 'component')
@@ -143,12 +150,13 @@ export class BuildService {
         status: buildFiltersDto.status,
       });
     }
+    const startDate = buildFiltersDto.startDate
+      ? new Date(buildFiltersDto.startDate)
+      : new Date();
 
-    if (buildFiltersDto.startDate) {
-      qb = qb.andWhere('build.createdAt < :startDate', {
-        startDate: buildFiltersDto.startDate,
-      });
-    }
+    qb = qb.andWhere('build.createdAt < :startDate', {
+      startDate: startDate,
+    });
 
     if (buildFiltersDto.limit) {
       qb = qb.take(buildFiltersDto.limit);
@@ -159,5 +167,44 @@ export class BuildService {
     }
 
     const builds = await qb.getMany();
+
+    const total = await this.buildRepository.count();
+
+    const itemsLeft = total - (buildFiltersDto.skip || 0) - builds.length;
+    const itemsSkipped = buildFiltersDto.skip || 0;
+
+    return BuildMapper.toCursorResultDto({
+      builds,
+      itemsLeft,
+      startDate,
+      itemsSkipped,
+    });
+  }
+
+  async getPackage(buildId: string) {
+    const build = await this.buildRepository.findOneBy({
+      id: buildId,
+    });
+    if (!build) throw new AppError(ERROR_CODE.BUILD_NOT_FOUND);
+    await this.loadRepository.save({
+      build: build,
+    });
+    return this.minio.getObject(MINIO_PACKAGE_BUCKET, build.packageFilename);
+  }
+
+  async getSource(buildId: string) {
+    const build = await this.buildRepository.findOneBy({
+      id: buildId,
+    });
+    if (!build) throw new AppError(ERROR_CODE.BUILD_NOT_FOUND);
+    return this.minio.getObject(MINIO_SOURCE_BUCKET, build.sourceFilename);
+  }
+
+  async getPreview(buildId: string) {
+    const build = await this.buildRepository.findOneBy({
+      id: buildId,
+    });
+    if (!build) throw new AppError(ERROR_CODE.BUILD_NOT_FOUND);
+    return this.minio.getObject(MINIO_PACKAGE_BUCKET, build.previewFilename);
   }
 }

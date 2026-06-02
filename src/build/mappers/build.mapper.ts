@@ -1,7 +1,7 @@
 import { Build } from 'src/postgres/entities/build.entity';
-import { BuildEntityResultDto } from './dto/build-entity-result.dto';
-import { BuildEntityDto } from './dto/build-entity.dto';
-import { BuildCursorResultDto } from './dto/build-cursor-result.dto';
+import { BuildEntityResultDto } from '../dto/build-entity-result.dto';
+import { BuildEntityDto } from '../dto/build-entity.dto';
+import { BuildCursorResultDto } from '../dto/build-cursor-result.dto';
 
 export class BuildMapper {
   static toEntityResultDto(

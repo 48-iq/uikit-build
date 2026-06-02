@@ -1,5 +1,6 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Component } from "./component.entity";
+import { Build } from "./build.entity";
 
 @Entity({ name: 'loads' })
 export class Load {
@@ -10,7 +11,7 @@ export class Load {
   @CreateDateColumn({type: 'timestamp', default: () => "CURRENT_TIMESTAMP(6)"})
   createdAt: Date;
 
-  @ManyToOne(() => Component, (component) => component.loads)
-  @JoinColumn({ name: 'componentId' })
-  component: Component;
+  @ManyToOne(() => Build, (build) => build.loads)
+  @JoinColumn({ name: 'buildId' })
+  build: Build;
 }

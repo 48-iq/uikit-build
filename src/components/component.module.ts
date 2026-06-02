@@ -4,18 +4,12 @@ import { Component } from 'src/postgres/entities/component.entity';
 import { ComponentService } from './component.service';
 import { ComponentController } from './component.controller';
 import { BuildModule } from 'src/build/build.module';
-import { SourceModule } from 'src/source/source.module';
 import { ComponentMapper } from './component.mapper';
-import { ComponentLoadController } from './component-load.controller';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Component]),
-    BuildModule,
-    SourceModule,
-  ],
-  providers: [ComponentService, ComponentMapper],
+  imports: [TypeOrmModule.forFeature([Component]), BuildModule],
+  providers: [ComponentService],
   exports: [ComponentService],
-  controllers: [ComponentController, ComponentLoadController],
+  controllers: [ComponentController],
 })
 export class ComponentModule {}

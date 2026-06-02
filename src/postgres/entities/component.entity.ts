@@ -11,6 +11,13 @@ import { Build } from './build.entity';
 import { Load } from './load.entity';
 import { ComponentTag } from './component-tag.enum';
 
+export enum Framework {
+  REACT = 'react',
+  VUE = 'vue',
+  VANILLA = 'vanilla',
+}
+
+
 @Entity({ name: 'components' })
 export class Component {
   @PrimaryGeneratedColumn('uuid')
@@ -37,8 +44,11 @@ export class Component {
   })
   tags: ComponentTag[];
 
-  @Column()
-  framework: string;
+  @Column({
+    type: 'enum',
+    enum: Framework,
+  })
+  framework: Framework;
 
   @Column()
   description: string;
@@ -46,12 +56,6 @@ export class Component {
   @Column()
   username: string;
 
-  @Column({ nullable: true })
-  tag: string;
-
   @OneToMany(() => Build, (build) => build.component)
   builds: Build[];
-
-  @OneToMany(() => Load, (load) => load.component)
-  loads: Load[];
 }
