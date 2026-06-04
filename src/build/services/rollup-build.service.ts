@@ -136,7 +136,7 @@ export class RollupBuildService {
       );
       await log('Tarball created', 'info');
 
-      const packageFilename = `${component.username}/${component.name}/${build.id}.tgz`;
+      const packageFilename = build.id;
       await this.minio.putObject(
         MINIO_COMPONENTS_BUCKET,
         packageFilename,

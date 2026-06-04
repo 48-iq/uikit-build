@@ -135,7 +135,7 @@ export class PreviewBuildService {
       await bundle.close();
       await log('Preview bundle built', 'info');
 
-      const previewFilename = `${component.username}/${component.name}/${build.id}.js`;
+      const previewFilename = build.id;
       await this.minio.putObject(
         MINIO_PREVIEW_BUCKET,
         previewFilename,
