@@ -105,7 +105,7 @@ export class BuildService {
           finishedAt: new Date(),
         },
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.logger.error(`Build ${build.id} runner failed`, error);
       await this.buildRepository.update(
         { id: build.id },
@@ -193,6 +193,14 @@ export class BuildService {
     });
     if (!build) throw new AppError(ERROR_CODE.BUILD_NOT_FOUND);
     return this.minio.getObject(MINIO_SOURCE_BUCKET, build.sourceFilename);
+  }
+
+  async getManyByIds(ids: string[]) {
+    const builds = await this.buildRepository.find({
+      where: ids.map((id) => ({ id })),
+      relations: ['component'],
+    });
+    return BuildMapper.toListResultDto(builds);
   }
 
   async getPreview(buildId: string) {

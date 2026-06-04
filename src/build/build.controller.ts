@@ -1,6 +1,7 @@
-import { Controller, Get, Logger, Param, Query, Req, StreamableFile } from '@nestjs/common';
+import { Controller, Get, Logger, Param, Query, StreamableFile } from '@nestjs/common';
 import { BuildService } from 'src/build/services/build.service';
 import { BuildFiltersDto } from './dto/build-filters.dto';
+import { BuildIdsDto } from './dto/build-ids.dto';
 import { Public } from 'src/security/public.decorator';
 
 @Controller('/api/components/builds')
@@ -8,6 +9,12 @@ export class BuildController {
   private readonly logger = new Logger(BuildController.name);
 
   constructor(private buildService: BuildService) {}
+
+  @Public()
+  @Get('/get/batch')
+  async getManyByIds(@Query() dto: BuildIdsDto) {
+    return this.buildService.getManyByIds(dto.ids);
+  }
 
   @Public()
   @Get('/:buildId')

@@ -2,6 +2,8 @@ import { Build } from 'src/postgres/entities/build.entity';
 import { BuildEntityResultDto } from '../dto/build-entity-result.dto';
 import { BuildEntityDto } from '../dto/build-entity.dto';
 import { BuildCursorResultDto } from '../dto/build-cursor-result.dto';
+import { BuildListResultDto } from '../dto/build-list-result.dto';
+import { BuildListEntityDto } from '../dto/build-list-entity.dto';
 
 export class BuildMapper {
   static toEntityResultDto(
@@ -28,6 +30,21 @@ export class BuildMapper {
       version: build.version,
       sourceFileText: sourceFileText ?? '',
     };
+  }
+
+  static toListEntityDto(build: Build): BuildListEntityDto {
+    return {
+      id: build.id,
+      name: build.component.name,
+      username: build.component.username,
+      packageFilename: build.packageFilename,
+      version: build.version,
+      componentId: build.component.id
+    };
+  }
+
+  static toListResultDto(builds: Build[]): BuildListResultDto {
+    return { success: true, result: builds.map((b) => this.toListEntityDto(b)) };
   }
 
   static toCursorResultDto(args: {

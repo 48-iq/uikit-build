@@ -5,10 +5,9 @@ export class AppError extends Error {
 
   readonly statusCode: number;
 
-  constructor(code: ErrorCode, cause?: string) {
-    super(code.message);
+  constructor(code: ErrorCode, cause?: Error) {
+    super(code.message, { cause });
     this.code = code.code;
     this.statusCode = code.statusCode;
-    this.cause = cause;
   }
 }
