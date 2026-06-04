@@ -8,6 +8,7 @@ import {
   Query,
   Req,
   Res,
+  UploadedFile,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
@@ -35,7 +36,7 @@ export class ComponentController {
   @Post('/upload')
   @UseInterceptors(FileInterceptor('file'))
   async upload(
-    @UploadedFiles() file: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File,
     @Body() dto: ComponentCreateDto,
     @Req() req: Request,
   ) {
@@ -47,7 +48,7 @@ export class ComponentController {
   @Post('/:username/:name/version')
   @UseInterceptors(FileInterceptor('file'))
   async newVersion(
-    @UploadedFiles() file: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File,
     @Param('username') username: string,
     @Param('name') name: string,
     @Body() dto: ComponentNewVersionDto,
@@ -69,11 +70,12 @@ export class ComponentController {
   async get(
     @Param('username') username: string,
     @Param('name') name: string,
-    @Res({ passthrough: true }) res: Response,
+    @Query('version') version?: string,
   ) {
     return await this.componentService.getByNameAndUsername({
       name,
       username,
+      version: version ? +version : undefined,
     });
   }
 

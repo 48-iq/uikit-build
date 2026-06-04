@@ -11,6 +11,7 @@ import { InjectMinio } from 'src/minio/minio.decorator';
 import { Client } from 'minio';
 import {
   MINIO_COMPONENTS_BUCKET as MINIO_PACKAGE_BUCKET,
+  MINIO_PREVIEW_BUCKET,
   MINIO_SOURCE_BUCKET,
 } from 'src/minio/constants';
 import { BuildMapper } from '../mappers/build.mapper';
@@ -38,10 +39,11 @@ export class BuildService {
     file: Express.Multer.File;
     dependencies: Record<string, string>;
   }) {
-    const lastBuild = await this.buildRepository.findOne({
-      where: { component: args.component },
-      order: { version: 'DESC' },
-    });
+    const lastBuild = await this.buildRepository
+      .createQueryBuilder('build')
+      .where('build.componentId = :componentId', { componentId: args.component.id })
+      .orderBy('build.version', 'DESC')
+      .getOne();
 
     let build = await this.buildRepository.save({
       component: args.component,
@@ -128,56 +130,42 @@ export class BuildService {
   }
 
   async getByFilters(buildFiltersDto: BuildFiltersDto) {
-    let qb = this.buildRepository
-      .createQueryBuilder('build')
-      .leftJoinAndSelect('build.component', 'component')
-      .where('1 = 1');
+    const { username, componentId, status, skip = 0, limit = 10 } = buildFiltersDto;
 
-    if (buildFiltersDto.username) {
-      qb = qb.andWhere('component.username = :username', {
-        username: buildFiltersDto.username,
-      });
-    }
-
-    if (buildFiltersDto.componentId) {
-      qb = qb.andWhere('component.id = :componentId', {
-        componentId: buildFiltersDto.componentId,
-      });
-    }
-
-    if (buildFiltersDto.status) {
-      qb = qb.andWhere('build.status = :status', {
-        status: buildFiltersDto.status,
-      });
-    }
     const startDate = buildFiltersDto.startDate
       ? new Date(buildFiltersDto.startDate)
       : new Date();
 
-    qb = qb.andWhere('build.createdAt < :startDate', {
-      startDate: startDate,
-    });
+    let qb = this.buildRepository
+      .createQueryBuilder('build')
+      .leftJoinAndSelect('build.component', 'component')
+      .where('build.startedAt < :startDate', { startDate })
+      .andWhere('build.status = :status', { status: status ?? BuildStatus.SUCCESS });
 
-    if (buildFiltersDto.limit) {
-      qb = qb.take(buildFiltersDto.limit);
+    if (username) {
+      qb = qb.andWhere('component.username = :username', { username });
     }
 
-    if (buildFiltersDto.skip) {
-      qb = qb.skip(buildFiltersDto.skip);
+    if (componentId) {
+      qb = qb.andWhere('component.id = :componentId', { componentId });
     }
+
+    qb = qb.orderBy('build.version', 'DESC');
+
+    const filteredTotal = await qb.getCount();
+
+    if (skip) qb = qb.skip(skip);
+    if (limit) qb = qb.take(limit);
 
     const builds = await qb.getMany();
 
-    const total = await this.buildRepository.count();
-
-    const itemsLeft = total - (buildFiltersDto.skip || 0) - builds.length;
-    const itemsSkipped = buildFiltersDto.skip || 0;
+    const itemsLeft = filteredTotal - skip - builds.length;
 
     return BuildMapper.toCursorResultDto({
       builds,
       itemsLeft,
       startDate,
-      itemsSkipped,
+      itemsSkipped: skip,
     });
   }
 
@@ -205,6 +193,6 @@ export class BuildService {
       id: buildId,
     });
     if (!build) throw new AppError(ERROR_CODE.BUILD_NOT_FOUND);
-    return this.minio.getObject(MINIO_PACKAGE_BUCKET, build.previewFilename);
+    return this.minio.getObject(MINIO_PREVIEW_BUCKET, build.previewFilename);
   }
 }

@@ -1,20 +1,31 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Load } from 'src/postgres/entities/load.entity';
+import { Component } from 'src/postgres/entities/component.entity';
 import { Repository } from 'typeorm';
 import { ComponentStatDto, DailyStatPointDto } from './dto/component-stat.dto';
 import { ComponentStatResultDto } from './dto/component-stat-result.dto';
+import { AppError } from 'src/errors/app.error';
+import { ERROR_CODE } from 'src/errors/error-code';
 
 @Injectable()
 export class ComponentStatService {
   constructor(
     @InjectRepository(Load)
     private readonly loadRepository: Repository<Load>,
+    @InjectRepository(Component)
+    private readonly componentRepository: Repository<Component>,
   ) {}
 
   async getComponentStat(componentId: string): Promise<ComponentStatResultDto> {
+    const component = await this.componentRepository.findOneBy({ id: componentId });
+    if (!component) throw new AppError(ERROR_CODE.COMPONENT_NOT_FOUND);
+
     const now = Date.now();
     const msDay = 1000 * 60 * 60 * 24;
+    const createdAt = component.createdAt;
+
+    const clip = (since: Date) => (since < createdAt ? createdAt : since);
 
     const countSince = (since: Date) =>
       this.loadRepository
@@ -26,14 +37,14 @@ export class ComponentStatService {
         .getCount();
 
     const [loadsTotal, loadsForYear, loadsForMonth, loadsForWeek, loadsForDay] = await Promise.all([
-      countSince(new Date(0)),
-      countSince(new Date(now - msDay * 365)),
-      countSince(new Date(now - msDay * 30)),
-      countSince(new Date(now - msDay * 7)),
-      countSince(new Date(now - msDay)),
+      countSince(createdAt),
+      countSince(clip(new Date(now - msDay * 365))),
+      countSince(clip(new Date(now - msDay * 30))),
+      countSince(clip(new Date(now - msDay * 7))),
+      countSince(clip(new Date(now - msDay))),
     ]);
 
-    const dailyChart = await this.getDailyChart(componentId, 30);
+    const dailyChart = await this.getDailyChart(componentId, 30, createdAt);
 
     const result: ComponentStatDto = {
       componentId,
@@ -48,32 +59,60 @@ export class ComponentStatService {
     return { success: true, result };
   }
 
-  private async getDailyChart(componentId: string, days: number): Promise<DailyStatPointDto[]> {
-    const since = new Date(Date.now() - 1000 * 60 * 60 * 24 * days);
+  private async getDailyChart(
+    componentId: string,
+    days: number,
+    createdAt: Date,
+  ): Promise<DailyStatPointDto[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const start = new Date(createdAt);
+    start.setHours(0, 0, 0, 0);
+
+    const naturalEnd = new Date(start);
+    naturalEnd.setDate(naturalEnd.getDate() + (days - 1));
+
+    let windowStart: Date;
+    let windowEnd: Date;
+
+    if (naturalEnd <= today) {
+      windowEnd = today;
+      windowStart = new Date(today);
+      windowStart.setDate(windowStart.getDate() - (days - 1));
+    } else {
+      windowStart = start;
+      windowEnd = naturalEnd;
+    }
 
     const raw: { date: string; count: string }[] = await this.loadRepository
       .createQueryBuilder('load')
       .innerJoin('load.build', 'build')
       .innerJoin('build.component', 'component')
-      .select("DATE(load.createdAt)", 'date')
+      .select("TO_CHAR(load.createdAt, 'YYYY-MM-DD')", 'date')
       .addSelect('COUNT(*)', 'count')
       .where('component.id = :componentId', { componentId })
-      .andWhere('load.createdAt >= :since', { since })
-      .groupBy('DATE(load.createdAt)')
-      .orderBy('DATE(load.createdAt)', 'ASC')
+      .andWhere('load.createdAt >= :start', { start: windowStart })
+      .andWhere('load.createdAt < :endExclusive', {
+        endExclusive: new Date(windowEnd.getTime() + 1000 * 60 * 60 * 24),
+      })
+      .groupBy("TO_CHAR(load.createdAt, 'YYYY-MM-DD')")
+      .orderBy("TO_CHAR(load.createdAt, 'YYYY-MM-DD')", 'ASC')
       .getRawMany();
 
-    return fillDailyGaps(raw, days);
+  return fillDailyRange(raw, windowStart, windowEnd);
   }
 }
 
-function fillDailyGaps(raw: { date: string; count: string }[], days: number): DailyStatPointDto[] {
+function fillDailyRange(
+  raw: { date: string; count: string }[],
+  start: Date,
+  end: Date,
+): DailyStatPointDto[] {
   const byDate = new Map(raw.map((r) => [r.date, Number(r.count)]));
   const result: DailyStatPointDto[] = [];
 
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const date = d.toISOString().split('T')[0];
     result.push({ date, count: byDate.get(date) ?? 0 });
   }

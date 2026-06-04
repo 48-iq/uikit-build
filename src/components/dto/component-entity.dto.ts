@@ -1,3 +1,4 @@
+import { ComponentTag } from 'src/postgres/entities/component-tag.enum';
 import { EntityDto } from '../../common/dto/entity.dto';
 
 export class ComponentEntityDto extends EntityDto {
@@ -5,4 +6,7 @@ export class ComponentEntityDto extends EntityDto {
   username: string;
   framework: string;
   description: string;
+  tags: ComponentTag[];
+  version: number | null;
+  buildId: string | null;
 }

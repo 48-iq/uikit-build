@@ -23,7 +23,7 @@ export class BuildMapper {
       startedAt: build.startedAt?.toISOString() ?? 'none',
       finishedAt: build.finishedAt?.toISOString() ?? 'none',
       createdAt: build.startedAt?.toISOString() ?? 'none',
-      updatedAt: build.updatedAt.toISOString() ?? 'none',
+      updatedAt: build.updatedAt?.toISOString() ?? 'none',
       version: build.version,
       sourceFileText: sourceFileText ?? '',
     };
@@ -34,19 +34,32 @@ export class BuildMapper {
     itemsLeft: number;
     startDate: Date;
     itemsSkipped: number;
-  }) {
-    const { builds, itemsLeft, startDate, itemsSkipped } = args;
-
-    const cursorResultDto = new BuildCursorResultDto();
-    
-    cursorResultDto.success = true;
-    cursorResultDto.result = {
-      itemsLeft,
-      data: builds.map((build) => this.toEntityDto(build)),
-      startDate: startDate.toISOString(),
-      itemsSkipped,
+  }): BuildCursorResultDto {
+    const dto = new BuildCursorResultDto();
+    dto.success = true;
+    dto.result = {
+      itemsLeft: args.itemsLeft,
+      data: args.builds.map((b) => this.toEntityDto(b)),
+      startDate: args.startDate.toISOString(),
+      itemsSkipped: args.itemsSkipped,
     };
+    return dto;
+  }
 
-    return cursorResultDto;
+  static toListResultDto(args: {
+    builds: Build[];
+    total: number;
+    skip: number;
+    limit: number;
+  }) {
+    return {
+      success: true,
+      result: {
+        data: args.builds.map((b) => this.toEntityDto(b)),
+        total: args.total,
+        skip: args.skip,
+        limit: args.limit,
+      },
+    };
   }
 }

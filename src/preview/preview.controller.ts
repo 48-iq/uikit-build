@@ -10,24 +10,7 @@ export class PreviewController {
   constructor(
     private readonly previewService: PreviewService,
     private readonly componentService: ComponentService
-  ) {
-  }
-
-  // @Public()
-  // @Get('/:username/:name')
-  // async previewMeta(
-  //   @Param('username') username: string,
-  //   @Param('name') name: string,
-  // ) {
-  //   const component = await this.componentService.getByUsernameAndName({
-  //     username,
-  //     name,
-  //   });
-
-  //   return {
-  //     url: `/api/components/previews/${component.id}`,
-  //   };
-  // }
+  ) {}
 
   @Public()
   @Get('/:id.js')

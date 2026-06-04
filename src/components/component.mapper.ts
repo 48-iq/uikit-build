@@ -9,7 +9,7 @@ import { BuildMapper } from 'src/build/mappers/build.mapper';
 
 @Injectable()
 export class ComponentMapper {
-  static toEntityDto(component: Component) {
+  static toEntityDto(component: Component, build?: Build) {
     const entityDto = new ComponentEntityDto();
 
     entityDto.id = component.id;
@@ -19,6 +19,9 @@ export class ComponentMapper {
     entityDto.username = component.username;
     entityDto.createdAt = component.createdAt.toISOString();
     entityDto.updatedAt = component.updatedAt?.toISOString() ?? 'none';
+    entityDto.tags = component.tags;
+    entityDto.version = build?.version ?? null;
+    entityDto.buildId = build?.id ?? null;
 
     return entityDto;
   }
@@ -37,8 +40,8 @@ export class ComponentMapper {
     return componentCreateResultDto;
   }
 
-  static toEntityResultDto(component: Component) {
-    const entityDto = this.toEntityDto(component);
+  static toEntityResultDto(component: Component, build?: Build) {
+    const entityDto = this.toEntityDto(component, build);
 
     const componentResultDto = new ComponentResultDto();
 

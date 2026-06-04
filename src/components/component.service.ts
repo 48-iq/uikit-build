@@ -10,6 +10,7 @@ import { ERROR_CODE } from 'src/errors/error-code';
 import { ComponentFiltersDto } from './dto/component-filters.dto';
 import { ComponentMapper } from './component.mapper';
 import { BuildService } from 'src/build/services/build.service';
+import { Build } from 'src/postgres/entities/build.entity';
 
 @Injectable()
 export class ComponentService {
@@ -28,15 +29,46 @@ export class ComponentService {
     return ComponentMapper.toEntityDto(component);
   }
 
-  async getByNameAndUsername(args: { name: string; username: string }) {
-    const component = await this.componentRepository.findOneBy({
-      name: args.name,
-      username: args.username,
-    });
+  async getByNameAndUsername(args: {
+    name: string;
+    username: string;
+    version?: number;
+  }) {
+    let buildSubquery: string;
+    const subqueryParams: Record<string, any> = {};
+
+    if (args.version != null) {
+      buildSubquery = `
+        latestBuild.id = (
+          SELECT b.id FROM builds b
+          WHERE b."componentId" = component.id
+            AND b.version = :version
+            AND b.status = 'success'
+          LIMIT 1
+        )
+      `;
+      subqueryParams.version = args.version;
+    } else {
+      buildSubquery = `
+        latestBuild.id = (
+          SELECT b.id FROM builds b
+          WHERE b."componentId" = component.id
+            AND b.status = 'success'
+          ORDER BY b.version DESC
+          LIMIT 1
+        )
+      `;
+    }
+
+    const component = (await this.componentRepository
+      .createQueryBuilder('component')
+      .leftJoinAndMapOne('component.latestBuild', 'builds', 'latestBuild', buildSubquery, subqueryParams)
+      .where('component.name = :name AND component.username = :username', args)
+      .getOne()) as (Component & { latestBuild?: Build }) | null;
 
     if (!component) throw new AppError(ERROR_CODE.COMPONENT_NOT_FOUND);
 
-    return ComponentMapper.toEntityDto(component);
+    return ComponentMapper.toEntityResultDto(component, component.latestBuild);
   }
 
   async create(args: {
@@ -89,6 +121,7 @@ export class ComponentService {
     const startDate = filters.startDate
       ? new Date(filters.startDate)
       : new Date();
+
     let qb = this.componentRepository
       .createQueryBuilder('component')
       .where('1 = 1');
@@ -98,9 +131,11 @@ export class ComponentService {
 
     qb = qb.andWhere('component.createdAt < :startDate', { startDate });
 
+    qb = qb.orderBy('component.createdAt', filters.sort === 'asc' ? 'ASC' : 'DESC');
+
     if (query)
       qb = qb.andWhere(
-        `component.username || '/' || component.name || '/' || component.version LIKE :query`,
+        `component.username || '/' || component.name LIKE :query`,
         { query: `%${query}%` },
       );
 
@@ -111,15 +146,15 @@ export class ComponentService {
       qb = qb.andWhere('component.tags @> :tags', { tags: filters.tags });
     }
 
-    if (skip) qb = qb.offset(skip);
+    const filteredTotal = await qb.getCount();
 
+    if (skip) qb = qb.offset(skip);
     if (limit) qb = qb.limit(limit);
 
-    const total = await this.componentRepository.count();
-    const count = await qb.getCount();
-    const itemsLeft = total - (skip ?? 0) - count;
-
     const components = await qb.getMany();
+
+    const itemsLeft = filteredTotal - (skip ?? 0) - components.length;
+
     return ComponentMapper.toCursorResultDto({
       components,
       itemsLeft,

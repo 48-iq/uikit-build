@@ -23,6 +23,20 @@ export const ERROR_CODE = {
     message: 'Build not found',
   },
 
+  // preview
+  PREVIEW_NOT_FOUND: {
+    statusCode: 404,
+    code: 'PREVIEW_001',
+    message: 'Preview not found',
+  },
+
+  // preview
+  USER_NOT_FOUND: {
+    statusCode: 404,
+    code: 'USER_001',
+    message: 'User not found',
+  },
+
   // component
   COMPONENT_NOT_FOUND: {
     statusCode: 404,
