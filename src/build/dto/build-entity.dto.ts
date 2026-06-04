@@ -16,4 +16,5 @@ export class BuildEntityDto extends EntityDto {
 
   finishedAt: string;
 
+  packageFilename?: string;
 }

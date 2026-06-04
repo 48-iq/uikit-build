@@ -29,6 +29,7 @@ export class BuildMapper {
       updatedAt: build.updatedAt?.toISOString() ?? 'none',
       version: build.version,
       sourceFileText: sourceFileText ?? '',
+      packageFilename: build.packageFilename ?? '',
     };
   }
 
