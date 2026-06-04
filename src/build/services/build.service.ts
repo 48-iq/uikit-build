@@ -216,6 +216,7 @@ export class BuildService {
 
     const builds = await this.buildRepository
       .createQueryBuilder('build')
+      .leftJoinAndSelect('build.component', 'component')
       .distinctOn(['build.componentId'])
       .where('build.componentId IN (:...ids)', { ids: componentIds })
       .orderBy('build.componentId')
