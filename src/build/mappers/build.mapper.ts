@@ -14,10 +14,11 @@ export class BuildMapper {
     };
   }
 
-  static toEntityDto(build: Build, sourceFileText?: string): BuildEntityDto {
+  static toEntityDto(build: Build, sourceFileText?: string) {
     return {
       id: build.id,
       componentId: build.component.id,
+      component: build.component,
       status: build.status,
       logs: build.logs ?? '',
       startedAt: build.startedAt?.toISOString() ?? 'none',
@@ -44,22 +45,5 @@ export class BuildMapper {
       itemsSkipped: args.itemsSkipped,
     };
     return dto;
-  }
-
-  static toListResultDto(args: {
-    builds: Build[];
-    total: number;
-    skip: number;
-    limit: number;
-  }) {
-    return {
-      success: true,
-      result: {
-        data: args.builds.map((b) => this.toEntityDto(b)),
-        total: args.total,
-        skip: args.skip,
-        limit: args.limit,
-      },
-    };
   }
 }

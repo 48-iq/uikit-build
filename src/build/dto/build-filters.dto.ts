@@ -31,4 +31,8 @@ export class BuildFiltersDto {
   @IsOptional()
   @IsDateString()
   startDate?: string;
+
+  @IsOptional()
+  @IsString()
+  query?: string;
 }

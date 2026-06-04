@@ -126,11 +126,12 @@ export class BuildService {
     });
 
     if (!build) throw new Error(`Build with id ${buildId} not found`);
-    return build;
+
+    return BuildMapper.toEntityResultDto(build);
   }
 
   async getByFilters(buildFiltersDto: BuildFiltersDto) {
-    const { username, componentId, status, skip = 0, limit = 10 } = buildFiltersDto;
+    const { username, componentId, status, query, skip = 0, limit = 10 } = buildFiltersDto;
 
     const startDate = buildFiltersDto.startDate
       ? new Date(buildFiltersDto.startDate)
@@ -148,6 +149,12 @@ export class BuildService {
 
     if (componentId) {
       qb = qb.andWhere('component.id = :componentId', { componentId });
+    }
+
+    if (query) {
+      qb = qb.andWhere('LOWER(component.name) LIKE :query', {
+        query: `%${query.toLowerCase()}%`,
+      });
     }
 
     qb = qb.orderBy('build.version', 'DESC');
