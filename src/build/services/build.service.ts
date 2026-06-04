@@ -210,4 +210,18 @@ export class BuildService {
     if (!build) throw new AppError(ERROR_CODE.BUILD_NOT_FOUND);
     return this.minio.getObject(MINIO_PREVIEW_BUCKET, build.previewFilename);
   }
+
+  async getLatestByComponentIds(componentIds: string[]): Promise<Map<string, Build>> {
+    if (!componentIds.length) return new Map();
+
+    const builds = await this.buildRepository
+      .createQueryBuilder('build')
+      .distinctOn(['build.componentId'])
+      .where('build.componentId IN (:...ids)', { ids: componentIds })
+      .orderBy('build.componentId')
+      .addOrderBy('build.version', 'DESC')
+      .getMany();
+
+    return new Map(builds.map((b) => [b.component.id, b]));
+  }
 }

@@ -153,11 +153,16 @@ export class ComponentService {
 
     const components = await qb.getMany();
 
+    const buildByComponentId = await this.buildService.getLatestByComponentIds(
+      components.map((c) => c.id),
+    );
+
     const itemsLeft = filteredTotal - (skip ?? 0) - components.length;
 
     return ComponentMapper.toCursorResultDto({
       components,
       itemsLeft,
+      builds: buildByComponentId,
       startDate,
       itemsSkipped: skip ?? 0,
     });

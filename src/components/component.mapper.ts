@@ -57,17 +57,19 @@ export class ComponentMapper {
 
   static toCursorResultDto(args: {
     components: Component[];
+    builds: Map<string, Build>;
     itemsLeft: number;
     startDate: Date;
     itemsSkipped: number;
   }) {
-
     const cursorResultDto = new ComponentCursorResultDto();
 
     cursorResultDto.result = {
       itemsLeft: args.itemsLeft,
-      data: args.components.map((component) => this.toEntityDto(component)),
-      startDate: args.startDate.toISOString()||'none',
+      data: args.components.map((component) =>
+        this.toEntityDto(component, args.builds.get(component.id)),
+      ),
+      startDate: args.startDate.toISOString() || 'none',
       itemsSkipped: args.itemsSkipped,
     };
     cursorResultDto.success = true;
