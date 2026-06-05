@@ -140,8 +140,10 @@ export class BuildService {
     let qb = this.buildRepository
       .createQueryBuilder('build')
       .leftJoinAndSelect('build.component', 'component')
-      .where('build.startedAt < :startDate', { startDate })
-      .andWhere('build.status = :status', { status: status ?? BuildStatus.SUCCESS });
+      .where('build.startedAt < :startDate', { startDate });
+
+    if (status)
+      qb = qb.andWhere('build.status = :status', { status: status });
 
     if (username) {
       qb = qb.andWhere('component.username = :username', { username });
